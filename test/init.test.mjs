@@ -8,29 +8,55 @@ import {
   init,
 } from '../src/init.mjs';
 
-test('parseInitArgs 解析自定义 BOT、跳过配对与全量安装', () => {
-  assert.deepEqual(parseInitArgs(['--app-id', 'cli_abc', '--app-secret-stdin', '--skip-pair', '--full']), {
-    appId: 'cli_abc', appSecretStdin: true, skipPair: true, full: true,
+test('parseInitArgs 解析自定义 BOT、跳过配对、全量与 agents', () => {
+  assert.deepEqual(parseInitArgs(['--app-id', 'cli_abc', '--app-secret-stdin', '--skip-pair', '--full', '--agents', 'codex,cursor']), {
+    appId: 'cli_abc', appSecretStdin: true, skipPair: true, full: true, agentsFlag: 'codex,cursor',
   });
   assert.equal(parseInitArgs([]).full, false);
+  assert.equal(parseInitArgs([]).agentsFlag, '');
   assert.throws(() => parseInitArgs(['--app-secret-stdin']), /--app-id/);
+  assert.throws(() => parseInitArgs(['--agents']), /--agents/);
 });
 
-test('init --full 会先安装缺失的 Agent CLI', async () => {
-  const ensured = [];
-  await init('/root', {PATH: 'x'}, {full: true, skipPair: true}, {
-    ensureTools: (env) => {
-      ensured.push(env.PATH);
-      return {env, notes: ['Codex：安装成功'], ok: true};
-    },
+test('init 默认只装 Codex 并做登录；--full 安装全部且可选择登录 Agent', async () => {
+  const batches = [];
+  const authBatches = [];
+  const deps = {
     check: () => ({ok: true, notes: ['Node：可用'], env: {PATH: 'x'}}),
     resolve: () => ({source: 'lark-cli', info: null, status: {appId: 'cli_abc'}}),
     connectFn: () => ({appId: 'cli_abc', eventSubscriptionReady: true}),
     pairFn: async () => {},
     exists: () => true,
     log: () => {},
+    ensureAuth: (_agents, _env) => {
+      authBatches.push([..._agents]);
+      return {ok: true, notes: ['Codex 登录：已就绪，跳过'], agents: _agents};
+    },
+  };
+  await init('/root', {PATH: 'x'}, {skipPair: true}, {
+    ...deps,
+    ensureTools: (_env, opts) => {
+      batches.push(opts.names);
+      return {env: {PATH: 'x'}, notes: ['Codex：已安装，跳过'], ok: true};
+    },
+    pickAuthAgents: async () => ['codex'],
   });
-  assert.equal(ensured.length, 1);
+  await init('/root', {PATH: 'x'}, {full: true, skipPair: true, agentsFlag: 'cursor,qcoder'}, {
+    ...deps,
+    ensureTools: (_env, opts) => {
+      batches.push(opts.names);
+      return {env: {PATH: 'x'}, notes: ['Codex：安装成功'], ok: true};
+    },
+    pickAuthAgents: async ({agentsFlag}) => agentsFlag.split(','),
+  });
+  assert.deepEqual(batches, [
+    ['codex'],
+    ['codex', 'cursor', 'qcoder', 'opencode'],
+  ]);
+  assert.deepEqual(authBatches, [
+    ['codex'],
+    ['cursor', 'qcoder'],
+  ]);
 });
 
 test('botAvailable 要求飞书品牌、应用 ID 与机器人身份', () => {
@@ -81,6 +107,7 @@ test('Lark CLI 无 BOT 时标记 missing', () => {
 test('checkPrerequisites 在 Lark CLI 缺失时失败', () => {
   const result = checkPrerequisites('/root', {}, {
     cursorBin: () => 'cursor-agent',
+    loggedIn: () => true,
     exec: (bin) => {
       if (bin === 'lark-cli') { const e = Error('missing'); e.code = 'ENOENT'; throw e; }
       return 'ok';
@@ -96,6 +123,9 @@ test('init 复用 Lark CLI BOT、完成 connect，已有配置时跳过配对', 
   const status = {appId: 'cli_abc', brand: 'feishu', identities: {bot: {available: true}}};
   const connection = {appId: 'cli_abc', botName: 'Bridge', eventSubscriptionReady: true};
   await init('/root', {}, {skipPair: false}, {
+    ensureTools: () => ({env: {}, notes: ['Codex：已安装，跳过'], ok: true}),
+    ensureAuth: () => ({ok: true, notes: ['Codex 登录：已就绪，跳过'], agents: ['codex']}),
+    pickAuthAgents: async () => ['codex'],
     check: () => ({ok: true, notes: ['Node：可用', 'Lark CLI：可用']}),
     resolve: () => ({source: 'lark-cli', info: null, status}),
     connectFn: () => connection,
@@ -111,6 +141,9 @@ test('init 复用 Lark CLI BOT、完成 connect，已有配置时跳过配对', 
 test('init 无 BOT 且非交互时给出明确指引', async () => {
   await assert.rejects(
     () => init('/root', {}, {}, {
+      ensureTools: () => ({env: {}, notes: ['Codex：已安装，跳过'], ok: true}),
+      ensureAuth: () => ({ok: true, notes: [], agents: ['codex']}),
+      pickAuthAgents: async () => ['codex'],
       check: () => ({ok: true, notes: []}),
       resolve: () => ({source: 'missing', info: null, status: null}),
       connectFn: () => { throw Error('no'); },

@@ -6,8 +6,9 @@ export function eligible(e, config, now = Date.now()) {
     Number(e.create_time) <= now + 60000 && Number(e.create_time) >= now - 300000;
 }
 export function sessionKey(e) { return `${e.sender_id}:${e.chat_id}`; }
-export function codexArgs(session, sandbox) {
+export function codexArgs(session, sandbox, model) {
   const args = ['exec', '--ignore-user-config', '--ignore-rules', '-c', `sandbox_mode="${sandbox}"`, '-c', 'approval_policy="never"', '--json', '--skip-git-repo-check'];
+  if (model) args.push('-m', model);
   return session ? [...args, 'resume', session, '-'] : [...args, '-'];
 }
 export function xml(s) {
@@ -25,6 +26,23 @@ export function resolveDirectory(input, roots) {
   if(!statSync(path).isDirectory()) throw Error('目标不是目录');
   if(roots?.length && !roots.some(root=>{const r=relative(realpathSync(root),path);return r === '' || (!isAbsolute(r) && r !== '..' && !r.startsWith('..'+sep));})) throw Error('此目录不在安装者配置的允许范围内');
   return path;
+}
+
+export function helpMessage() {
+  return [
+    '飞书命令：',
+    '/help — 显示本帮助',
+    '/status — 在线状态、目录、执行器、模型、是否忙碌',
+    '/cd 绝对路径 — 切换工作目录（支持 ~/）',
+    '/codex|/cursor|/qcoder|/opencode [任务] — 进入对应执行器',
+    '/model — 列出当前执行器可用模型',
+    '/model 模型名 — 设置模型；/model clear 恢复默认',
+    '/exit — 退出执行器，再发任务走 defaultMode',
+    '/new — 开新会话（执行器内只清当前模式）',
+    '/cancel — 取消当前任务',
+    '/bindbot — 提示到 Mac 换机器人（勿在聊天发密钥）',
+    '未进执行器时可直接发任务（默认 Codex）。仅处理私聊文字。',
+  ].join('\n');
 }
 
 export function failureMessage(stage, error, code) {

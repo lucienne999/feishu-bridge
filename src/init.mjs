@@ -4,8 +4,9 @@ import {join} from 'node:path';
 import {connect} from './connect.mjs';
 import {pair} from './pair.mjs';
 import {assertServiceStopped, switchBot} from './bot.mjs';
-import {cursorBinary, qoderBinary, opencodeBinary} from './providers.mjs';
+import {cursorBinary, qoderBinary, opencodeBinary, providerLabel} from './providers.mjs';
 import {ensureAgentTools, withLocalBinPath} from './tools-install.mjs';
+import {ensureAgentAuth, resolveAuthAgents, agentLoggedIn, AUTH_AGENTS} from './agent-auth.mjs';
 
 const LARK_CLI_INSTALL = 'npx @larksuite/cli@latest install';
 
@@ -13,11 +14,14 @@ export function parseInitArgs(argv) {
   const args = [...argv];
   const idFlag = args.indexOf('--app-id');
   const appId = idFlag >= 0 ? String(args[idFlag + 1] || '').trim() : '';
+  const agentsFlagIndex = args.indexOf('--agents');
+  const agentsFlag = agentsFlagIndex >= 0 ? String(args[agentsFlagIndex + 1] || '').trim() : '';
   const appSecretStdin = args.includes('--app-secret-stdin');
   const skipPair = args.includes('--skip-pair');
   const full = args.includes('--full');
   if (appSecretStdin && !appId) throw Error('使用 --app-secret-stdin 时需同时提供 --app-id。');
-  return {appId, appSecretStdin, skipPair, full};
+  if (agentsFlagIndex >= 0 && !agentsFlag) throw Error('使用 --agents 时需提供值，例如 --agents codex,cursor 或 --agents all。');
+  return {appId, appSecretStdin, skipPair, full, agentsFlag};
 }
 
 export function readAuthStatus(root, env, {
@@ -42,10 +46,13 @@ export function checkPrerequisites(root, env, {
   qoderBin = qoderBinary,
   opencodeBin = opencodeBinary,
   requireOptionalAgents = false,
+  requireLoginFor = ['codex'],
+  loggedIn = agentLoggedIn,
 } = {}) {
   const notes = [];
   let ok = true;
   const e = withLocalBinPath(env);
+  const loginSet = new Set(requireLoginFor);
   const check = (label, fn, {optional = false} = {}) => {
     try {
       fn();
@@ -71,21 +78,29 @@ export function checkPrerequisites(root, env, {
     catch { throw Error('未安装或不可用'); }
   });
   check('Codex 登录', () => {
-    try { exec('codex', ['login', 'status'], {cwd: root, env: e, encoding: 'utf8', timeout: 15000, stdio: ['ignore', 'pipe', 'pipe']}); }
-    catch { throw Error('未登录，请先运行 codex login'); }
-  });
+    if (!loggedIn('codex', e)) throw Error('未登录，请先完成 Codex 登录初始化');
+  }, {optional: !loginSet.has('codex')});
   check('Cursor CLI', () => {
     try { exec(cursorBin(), ['--version'], {cwd: root, env: e, encoding: 'utf8', timeout: 15000, stdio: ['ignore', 'pipe', 'pipe']}); }
     catch { throw Error('未安装；可用 npm run init -- --full 安装，或 curl https://cursor.com/install -fsSL | bash'); }
-  }, {optional: !requireOptionalAgents});
+  }, {optional: !requireOptionalAgents && !loginSet.has('cursor')});
+  check('Cursor 登录', () => {
+    if (!loggedIn('cursor', e)) throw Error('未登录');
+  }, {optional: !loginSet.has('cursor')});
   check('Qoder CLI', () => {
     try { exec(qoderBin(), ['--version'], {cwd: root, env: e, encoding: 'utf8', timeout: 15000, stdio: ['ignore', 'pipe', 'pipe']}); }
     catch { throw Error('未安装；可用 npm run init -- --full 安装，或 curl -fsSL https://qoder.com/install | bash'); }
-  }, {optional: !requireOptionalAgents});
+  }, {optional: !requireOptionalAgents && !loginSet.has('qcoder')});
+  check('Qoder 登录', () => {
+    if (!loggedIn('qcoder', e)) throw Error('未登录');
+  }, {optional: !loginSet.has('qcoder')});
   check('OpenCode', () => {
     try { exec(opencodeBin(), ['--version'], {cwd: root, env: e, encoding: 'utf8', timeout: 15000, stdio: ['ignore', 'pipe', 'pipe']}); }
     catch { throw Error('未安装；可用 npm run init -- --full 安装，或 curl -fsSL https://opencode.ai/v2/install | bash'); }
-  }, {optional: !requireOptionalAgents});
+  }, {optional: !requireOptionalAgents && !loginSet.has('opencode')});
+  check('OpenCode 登录', () => {
+    if (!loggedIn('opencode', e)) throw Error('未登录');
+  }, {optional: !loginSet.has('opencode')});
   return {ok, notes, env: e};
 }
 
@@ -117,6 +132,8 @@ export async function init(root, env, options = {}, {
   connectFn = connect,
   pairFn = pair,
   ensureTools = ensureAgentTools,
+  ensureAuth = ensureAgentAuth,
+  pickAuthAgents = resolveAuthAgents,
   exists = existsSync,
   read = readFileSync,
   readHidden,
@@ -129,21 +146,38 @@ export async function init(root, env, options = {}, {
     appSecretStdin = false,
     skipPair = false,
     full = false,
+    agentsFlag = '',
   } = options;
 
   let runtimeEnv = withLocalBinPath(env);
+  const toolNames = full
+    ? [...AUTH_AGENTS]
+    : ['codex'];
   log(full
-    ? '初始化（全量）：将检查并安装 Codex / Cursor / Qoder / OpenCode，再完成飞书配置。'
-    : '初始化：检查依赖与飞书配置（通常只需执行一次）。');
+    ? '初始化（全量）：将安装全部 Agent CLI，并让你选择要做登录初始化的 Agent。'
+    : '初始化：默认安装 Codex CLI 并完成登录验证，再配置飞书（通常只需执行一次）。');
 
-  if (full) {
-    const installed = ensureTools(runtimeEnv, {log});
-    runtimeEnv = installed.env;
-    for (const line of installed.notes) log(line);
-    if (!installed.ok) throw Error('全量安装未完成。请根据上方提示修复后重新运行 npm run init -- --full。');
+  const installed = ensureTools(runtimeEnv, {names: toolNames, log});
+  runtimeEnv = installed.env;
+  for (const line of installed.notes) log(line);
+  if (!installed.ok) {
+    throw Error(full
+      ? '全量安装未完成。请根据上方提示修复后重新运行 npm run init -- --full。'
+      : 'Codex CLI 未就绪。请根据上方提示修复后重新运行 npm run init；需要 Cursor/Qoder/OpenCode 时用 npm run init -- --full。');
   }
 
-  const prereq = check(root, runtimeEnv, {requireOptionalAgents: full});
+  const authAgents = await pickAuthAgents({full, agentsFlag}, {ask, log});
+  log(`将对以下 Agent 做登录初始化：${authAgents.map(providerLabel).join('、')}`);
+  const auth = ensureAuth(authAgents, runtimeEnv, {log});
+  for (const line of auth.notes) log(line);
+  if (!auth.ok) {
+    throw Error(`Agent 登录未完成（${authAgents.map(providerLabel).join('、')}）。请按提示重试，或手动运行对应 login 命令。`);
+  }
+
+  const prereq = check(root, runtimeEnv, {
+    requireOptionalAgents: full,
+    requireLoginFor: authAgents,
+  });
   for (const line of prereq.notes) log(line);
   if (!prereq.ok) throw Error('依赖未就绪。请按上方提示修复后重新运行 npm run init。');
   runtimeEnv = prereq.env || runtimeEnv;
@@ -197,6 +231,6 @@ export async function init(root, env, options = {}, {
   }
 
   log('初始化完成。运行 npm start 启动服务，在飞书私聊发送 /status 验证。');
-  log('执行器：/codex、/cursor、/qcoder、/opencode。');
-  return {connection, source: resolved.source, env: runtimeEnv};
+  log('常用命令：/status、/cd、/codex|/cursor|/qcoder|/opencode、/model、/new、/cancel、/exit；完整列表见 README「飞书命令」。');
+  return {connection, source: resolved.source, env: runtimeEnv, authAgents};
 }

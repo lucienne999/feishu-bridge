@@ -2,9 +2,10 @@ import {spawn, spawnSync, execFileSync} from 'node:child_process';
 import {randomBytes} from 'node:crypto';
 import {existsSync, readFileSync, writeFileSync} from 'node:fs';
 import {createInterface} from 'node:readline';
-import {dirname, join, resolve} from 'node:path';
+import {join, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {assertApp} from './connect.mjs';
+import {ensureDataLayout, packageRootFrom, resolveDataRoot} from './paths.mjs';
 
 export function matchesPair(e, code, startedAt, now=Date.now()) {
   const created=Number(e.create_time);
@@ -81,6 +82,10 @@ export async function pair(root) {
 }
 
 if(process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  try {await pair(resolve(dirname(fileURLToPath(import.meta.url)),'..'));}
-  catch {console.error('配对未完成。请检查连接或重新运行 npm run pair；不会自动放行其他账号。');process.exitCode=1;}
+  try {
+    const packageRoot = packageRootFrom(import.meta.url);
+    const root = resolveDataRoot(packageRoot);
+    ensureDataLayout(root, packageRoot);
+    await pair(root);
+  } catch {console.error('配对未完成。请检查连接或重新运行 feishu-bridge init / npm run pair；不会自动放行其他账号。');process.exitCode=1;}
 }

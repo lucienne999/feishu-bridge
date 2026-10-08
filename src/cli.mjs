@@ -1,24 +1,37 @@
+#!/usr/bin/env node
 import {spawn, execFileSync} from 'node:child_process';
 import {readFileSync, writeFileSync, existsSync, realpathSync, unlinkSync} from 'node:fs';
-import {fileURLToPath} from 'node:url';
-import {dirname, join, resolve} from 'node:path';
+import {join} from 'node:path';
 import {createInterface} from 'node:readline';
 import {createInterface as prompts} from 'node:readline/promises';
 import {DatabaseSync} from 'node:sqlite';
-import {eligible, sessionKey, codexArgs, xml, resolveDirectory, failureMessage} from './core.mjs';
+import {eligible, sessionKey, codexArgs, xml, resolveDirectory, failureMessage, helpMessage} from './core.mjs';
 import {connect, assertApp} from './connect.mjs';
 import {pair} from './pair.mjs';
 import {assertServiceStopped, switchBot} from './bot.mjs';
 import {parseInitArgs, init} from './init.mjs';
 import {AGENT_MODES, cursorBinary, qoderBinary, opencodeBinary, providerSpec, providerEvent, providerSessionKey, providerSessionIds, providerLabel, normalizeDefaultMode} from './providers.mjs';
+import {parseModelCommand, resolveModelProvider, listModels, formatModelList, assertKnownModel} from './models.mjs';
 import {withLocalBinPath} from './tools-install.mjs';
 import {buildStreamCard, buildFinalCard, buildStoppedCard, buildErrorCard, cardJson} from './card.mjs';
+import {cliEntryPath, ensureDataLayout, packageRootFrom, resolveDataRoot} from './paths.mjs';
 function clearProviderSessions(db, key) {
   const ids = providerSessionIds(key);
   db.prepare(`DELETE FROM sessions WHERE id IN (${ids.map(() => '?').join(',')})`).run(...ids);
 }
+function getProviderModel(db, key, provider) {
+  return db.prepare('SELECT model FROM models WHERE id=?').get(providerSessionKey(key, provider))?.model || null;
+}
+function setProviderModel(db, key, provider, model) {
+  const id = providerSessionKey(key, provider);
+  if (!model) db.prepare('DELETE FROM models WHERE id=?').run(id);
+  else db.prepare('INSERT OR REPLACE INTO models VALUES (?,?)').run(id, model);
+}
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const packageRoot = packageRootFrom(import.meta.url);
+const root = resolveDataRoot(packageRoot);
+ensureDataLayout(root, packageRoot);
+const cliPath = cliEntryPath(import.meta.url);
 const configPath = join(root, 'config.json');
 const env = withLocalBinPath({...process.env, LARKSUITE_CLI_NO_UPDATE_NOTIFIER:'1', LARKSUITE_CLI_NO_SKILLS_NOTIFIER:'1'});
 const command = process.argv[2] || 'doctor';
@@ -27,12 +40,12 @@ function run(bin, args) { return execFileSync(bin, args, {encoding:'utf8', env, 
 function requireLarkCli() {
   try { run('lark-cli', ['--version']); }
   catch (e) {
-    if (e?.code === 'ENOENT') throw Error(`未检测到 Lark CLI（lark-cli）。请先安装：\n${LARK_CLI_INSTALL}\n安装完成后重新运行 npm start。`);
+    if (e?.code === 'ENOENT') throw Error(`未检测到 Lark CLI（lark-cli）。请先安装：\n${LARK_CLI_INSTALL}\n安装完成后重新运行 feishu-bridge start（或 npm start）。`);
   }
 }
 function load() {
   const c = JSON.parse(readFileSync(configPath, 'utf8'));
-  if (!c.allowedUsers?.length || c.allowedUsers.some(x => !/^ou_[a-zA-Z0-9]+$/.test(x))) throw Error('请先运行 npm run setup 配置允许的飞书用户。');
+  if (!c.allowedUsers?.length || c.allowedUsers.some(x => !/^ou_[a-zA-Z0-9]+$/.test(x))) throw Error('请先运行 feishu-bridge init（或 npm run setup）配置允许的飞书用户。');
   if (!['read-only','workspace-write'].includes(c.sandbox)) throw Error('无效的 sandbox 配置');
   c.defaultMode = normalizeDefaultMode(c.defaultMode);
   c.workspace = realpathSync(c.workspace);
@@ -47,7 +60,7 @@ async function setup() {
     if (!/^ou_[a-zA-Z0-9]+$/.test(user)) throw Error('open_id 格式不正确');
     const mode = (await ui.question('允许修改 /cd 选中的项目？输入 yes，否则只读：')).trim();
     writeFileSync(configPath, JSON.stringify({workspace, allowedUsers:[user], sandbox:mode === 'yes' ? 'workspace-write':'read-only', defaultMode:'codex', timeoutSeconds:600}, null, 2), {mode:0o600, flag:'wx'});
-    console.log('配置完成。运行 npm run doctor 检查，再运行 npm start。');
+    console.log(`配置完成（${configPath}）。运行 feishu-bridge doctor，再运行 feishu-bridge start。`);
   } finally { ui.close(); }
 }
 function readHiddenLine(label) {
@@ -154,28 +167,30 @@ function doctor() {
       } else console.log(`${label}：可用`);
     } catch { console.log(`${label}：检查失败，请在终端检查登录、安装或钥匙串访问。`); process.exitCode=1; }
   }
+  console.log(`数据目录：${root}`);
   try { const c = load(); console.log(`项目：${c.workspace}\n沙箱：${c.sandbox}\n默认执行器：${c.defaultMode}`); }
-  catch { console.log('本工具配置：未完成，运行 npm run init（或 npm run setup / pair）。'); process.exitCode=1; }
+  catch { console.log('本工具配置：未完成，运行 feishu-bridge init（或 npm run init / setup / pair）。'); process.exitCode=1; }
 }
 function launchagent() {
   load();
   const plist = `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0"><dict>
   <key>Label</key><string>local.mac-feishu-bridge</string>
-  <key>ProgramArguments</key><array><string>${xml(process.execPath)}</string><string>${xml(join(root,'src/cli.mjs'))}</string><string>start</string></array>
+  <key>ProgramArguments</key><array><string>${xml(process.execPath)}</string><string>${xml(cliPath)}</string><string>start</string></array>
   <key>WorkingDirectory</key><string>${xml(root)}</string>
-  <key>EnvironmentVariables</key><dict><key>PATH</key><string>${xml(process.env.PATH)}</string></dict>
+  <key>EnvironmentVariables</key><dict><key>PATH</key><string>${xml(process.env.PATH)}</string><key>FEISHU_BRIDGE_HOME</key><string>${xml(root)}</string></dict>
   <key>RunAtLoad</key><true/><key>KeepAlive</key><true/><key>ThrottleInterval</key><integer>15</integer>
   <key>StandardOutPath</key><string>${xml(join(root,'service.log'))}</string>
   <key>StandardErrorPath</key><string>${xml(join(root,'service-error.log'))}</string>
   </dict></plist>`;
-  writeFileSync(join(root,'local.launchagent.plist'), plist, {mode:0o600});
-  console.log('已生成 local.launchagent.plist；安装步骤见 README。尚未注册或启动后台服务。');
+  const plistPath = join(root,'local.launchagent.plist');
+  writeFileSync(plistPath, plist, {mode:0o600});
+  console.log(`已生成 ${plistPath}；安装步骤见 README。尚未注册或启动后台服务。`);
 }
 async function start() {
   requireLarkCli();
   if(!existsSync(configPath)) {
     connect(root, env, {brief: true});
-    if(process.exitCode) throw Error('飞书事件连接尚未就绪，请根据上方提示修复后再运行 npm start。');
+    if(process.exitCode) throw Error('飞书事件连接尚未就绪，请根据上方提示修复后再运行 feishu-bridge start。');
     await pair(root);
   }
   const c = load();
@@ -192,7 +207,7 @@ async function start() {
   writeFileSync(lock,String(process.pid),{flag:'wx',mode:0o600});
   process.on('exit',()=>{try {unlinkSync(lock);} catch {}});
   const db = new DatabaseSync(join(root,'state.sqlite'));
-  db.exec('CREATE TABLE IF NOT EXISTS messages(id TEXT PRIMARY KEY, status TEXT); CREATE TABLE IF NOT EXISTS sessions(id TEXT PRIMARY KEY, thread TEXT); CREATE TABLE IF NOT EXISTS contexts(id TEXT PRIMARY KEY, cwd TEXT, mode TEXT);');
+  db.exec('CREATE TABLE IF NOT EXISTS messages(id TEXT PRIMARY KEY, status TEXT); CREATE TABLE IF NOT EXISTS sessions(id TEXT PRIMARY KEY, thread TEXT); CREATE TABLE IF NOT EXISTS contexts(id TEXT PRIMARY KEY, cwd TEXT, mode TEXT); CREATE TABLE IF NOT EXISTS models(id TEXT PRIMARY KEY, model TEXT);');
   db.exec("UPDATE messages SET status='interrupted' WHERE status='running'");
   let active = null;
   function runCli(args, timeoutMs = 15000) {
@@ -253,11 +268,14 @@ async function start() {
     if (!db.prepare('INSERT OR IGNORE INTO messages VALUES (?,?)').run(id,'received').changes) return;
     let ctx=db.prepare('SELECT cwd, mode FROM contexts WHERE id=?').get(key) || {cwd:c.workspace, mode:c.defaultMode};
     const saveContext=()=>db.prepare('INSERT OR REPLACE INTO contexts VALUES (?,?,?)').run(key,ctx.cwd,ctx.mode);
+    if (text === '/help' || text === '/?') return send(e, helpMessage());
     if (text === '/status') {
+      const provider = resolveModelProvider(ctx.mode, c.defaultMode);
       const modeLine = AGENT_MODES.includes(ctx.mode)
         ? providerLabel(ctx.mode)
         : `命令（默认 ${providerLabel(c.defaultMode)}）`;
-      return send(e, `Mac 在线\n目录：${ctx.cwd}\n模式：${modeLine}\n${active ? '有任务正在执行':'空闲'}`);
+      const model = getProviderModel(db, key, provider);
+      return send(e, `Mac 在线\n目录：${ctx.cwd}\n模式：${modeLine}\n模型：${model || '默认'}\n${active ? '有任务正在执行':'空闲'}`);
     }
     if (/^\/(?:bot|bindbot)$/i.test(text)) {
       return send(e, '绑定/更换机器人请在 Mac 终端运行：npm run bindbot\n只需填写开放平台的 App ID 与 App Secret；不要在聊天里发送密钥。');
@@ -288,18 +306,40 @@ async function start() {
       ctx.mode=selected[1];saveContext();text=text.slice(selected[1].length+1).trim();
       if(!text) return send(e,`已进入 ${providerLabel(ctx.mode)} 模式\n目录：${ctx.cwd}\n请发送任务描述；/exit 退出。`);
     }
-    if (!text || text.startsWith('/')) return send(e,'命令：/cd 绝对路径、/codex 任务描述、/cursor 任务描述、/qcoder 任务描述、/opencode 任务描述、/exit、/status、/cancel、/new、/bindbot。仅处理私聊文字。');
+    try {
+      const modelCmd = parseModelCommand(text);
+      if (modelCmd) {
+        const provider = resolveModelProvider(ctx.mode, c.defaultMode);
+        if (modelCmd.action === 'clear') {
+          setProviderModel(db, key, provider, null);
+          return send(e, `${providerLabel(provider)} 已恢复默认模型。`);
+        }
+        if (modelCmd.action === 'list') {
+          const models = listModels(provider, {env});
+          return send(e, formatModelList(provider, models, getProviderModel(db, key, provider)));
+        }
+        const models = listModels(provider, {env});
+        const model = assertKnownModel(models, modelCmd.model);
+        setProviderModel(db, key, provider, model);
+        return send(e, `${providerLabel(provider)} 模型已设为：${model}\n后续任务使用此模型；/model clear 可恢复默认。`);
+      }
+    } catch (err) {
+      if (/^\/model/i.test(text)) return send(e, err.message);
+      throw err;
+    }
+    if (!text || text.startsWith('/')) return send(e, helpMessage());
     if(!AGENT_MODES.includes(ctx.mode)) { ctx.mode = c.defaultMode; saveContext(); }
     const provider=ctx.mode, label=providerLabel(provider), providerKey=providerSessionKey(key,provider);
+    const model=getProviderModel(db, key, provider);
     const job={key, child:null, cancelled:false, event:e, cardId:null}; active=job;
     const startedAt=Date.now();
     const processSteps=['已接收任务'];
     db.prepare('UPDATE messages SET status=? WHERE id=?').run('running',id);
     try {
-      await updateJobCard(job, buildStreamCard({question:text, subtitle:'正在本机执行', process:processSteps, label}));
+      await updateJobCard(job, buildStreamCard({question:text, subtitle: model ? `正在本机执行 · ${model}` : '正在本机执行', process:processSteps, label}));
       if (job.cancelled) throw Error('cancelled');
       const thread = db.prepare('SELECT thread FROM sessions WHERE id=?').get(providerKey)?.thread;
-      const spec=providerSpec(provider,thread,c.sandbox,text);
+      const spec=providerSpec(provider,thread,c.sandbox,text,model);
       const p=spawn(spec.bin,spec.args,{cwd:ctx.cwd,env,detached:true,stdio:['pipe','pipe','pipe']});
       job.child=p;
       p.stdin.on('error',()=>{});
@@ -360,7 +400,7 @@ async function start() {
     if (!value || value.action !== 'new') return;
     const key = String(value.key || '');
     if (key !== `${e.operator_id}:${e.chat_id}`) return;
-    const ctx = db.prepare('SELECT cwd, mode FROM contexts WHERE id=?').get(key) || {mode: 'commands'};
+    const ctx = db.prepare('SELECT cwd, mode FROM contexts WHERE id=?').get(key) || {mode: c.defaultMode};
     if (AGENT_MODES.includes(ctx.mode)) {
       db.prepare('DELETE FROM sessions WHERE id=?').run(providerSessionKey(key, ctx.mode));
     } else {
@@ -369,7 +409,7 @@ async function start() {
     if (!e.token) return;
     const modeNote = AGENT_MODES.includes(ctx.mode)
       ? `仍在 ${providerLabel(ctx.mode)} 模式，直接发下一条任务即可。`
-      : '发送 /codex、/cursor、/qcoder 或 /opencode 加任务描述开始。';
+      : `直接发任务会用默认 ${providerLabel(c.defaultMode)}。`;
     const notice = buildFinalCard({
       question: '新会话',
       result: `**结论**\n\n已开新会话。${modeNote}`,

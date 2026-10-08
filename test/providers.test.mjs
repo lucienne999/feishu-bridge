@@ -2,13 +2,17 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {providerSpec, providerEvent, providerSessionKey, providerSessionIds, providerLabel, normalizeDefaultMode} from '../src/providers.mjs';
 
-test('Cursor 使用 Ask 模式和沙箱，信任工作区，不自动放开执行或 MCP', () => {
+test('Cursor 使用默认 Agent 模式和沙箱，信任工作区，不自动放开执行或 MCP', () => {
   const spec = providerSpec('cursor', 'cursor-session', 'read-only');
-  assert.deepEqual(spec.args, ['--print', '--output-format', 'stream-json', '--sandbox', 'enabled', '--trust', '--mode', 'ask', '--resume', 'cursor-session']);
+  assert.deepEqual(spec.args, ['--print', '--output-format', 'stream-json', '--sandbox', 'enabled', '--trust', '--resume', 'cursor-session']);
+  assert.ok(!spec.args.includes('--mode'));
   const ww = providerSpec('cursor', null, 'workspace-write');
   assert.ok(ww.args.includes('--trust'));
   assert.ok(!ww.args.includes('--force'));
   assert.ok(!ww.args.includes('--yolo'));
+  assert.ok(!ww.args.includes('--mode'));
+  const withModel = providerSpec('cursor', null, 'read-only', null, 'gpt-5.3-codex');
+  assert.ok(withModel.args.includes('--model') && withModel.args.includes('gpt-5.3-codex'));
 });
 
 test('Qoder 使用 print/stream-json，只读为 plan，可写为 accept_edits', () => {
@@ -33,6 +37,13 @@ test('OpenCode 使用 run --format json，只读 plan，可写 build --auto', ()
   assert.deepEqual(ro.args, ['run', '--format', 'json', '--agent', 'plan', '--session', 'ses_abc', '解释 README']);
   const ww = providerSpec('opencode', null, 'workspace-write', '改代码');
   assert.ok(ww.args.includes('build') && ww.args.includes('--auto'));
+});
+
+test('defaultMode 缺省为 Codex，非法值拒绝', () => {
+  assert.equal(normalizeDefaultMode(undefined), 'codex');
+  assert.equal(normalizeDefaultMode(''), 'codex');
+  assert.equal(normalizeDefaultMode('cursor'), 'cursor');
+  assert.throws(() => normalizeDefaultMode('gpt'), /无效的 defaultMode/);
 });
 
 test('四种执行器会话隔离并保留原 Codex key', () => {

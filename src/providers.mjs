@@ -53,13 +53,13 @@ export function providerSessionIds(key) {
   return PROVIDERS.map(p => providerSessionKey(key, p));
 }
 
-export function providerSpec(provider, session, sandbox, prompt) {
-  if (provider === 'codex') return {bin: 'codex', args: codexArgs(session, sandbox), label: 'Codex', passPromptOnStdin: true};
+export function providerSpec(provider, session, sandbox, prompt, model) {
+  if (provider === 'codex') return {bin: 'codex', args: codexArgs(session, sandbox, model), label: 'Codex', passPromptOnStdin: true};
   if (provider === 'cursor') {
     // --trust: headless only; skips interactive workspace-trust prompt (not --force/--yolo).
     const args = ['--print', '--output-format', 'stream-json', '--sandbox', 'enabled', '--trust'];
-    if (sandbox === 'read-only') args.push('--mode', 'ask');
-    else if (sandbox !== 'workspace-write') throw Error('不支持的权限模式');
+    if (sandbox !== 'read-only' && sandbox !== 'workspace-write') throw Error('不支持的权限模式');
+    if (model) args.push('--model', model);
     if (session) args.push('--resume', session);
     return {bin: cursorBinary(), args, label: 'Cursor', passPromptOnStdin: true};
   }
@@ -69,6 +69,7 @@ export function providerSpec(provider, session, sandbox, prompt) {
     if (sandbox === 'read-only') args.push('--permission-mode', 'plan');
     else if (sandbox === 'workspace-write') args.push('--permission-mode', 'accept_edits');
     else throw Error('不支持的权限模式');
+    if (model) args.push('--model', model);
     if (session) args.push('--resume', session);
     if (prompt) args.push(prompt);
     return {bin: qoderBinary(), args, label: 'Qoder', passPromptOnStdin: false};
@@ -79,6 +80,7 @@ export function providerSpec(provider, session, sandbox, prompt) {
   if (sandbox === 'read-only') args.push('--agent', 'plan');
   else if (sandbox === 'workspace-write') args.push('--agent', 'build', '--auto');
   else throw Error('不支持的权限模式');
+  if (model) args.push('--model', model);
   if (session) args.push('--session', session);
   if (prompt) args.push(prompt);
   return {bin: opencodeBinary(), args, label: 'OpenCode', passPromptOnStdin: false};

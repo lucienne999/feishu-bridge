@@ -1,10 +1,25 @@
 {
-  "name": "mac-feishu-bridge-local",
+  "name": "feishu-bridge",
   "version": "0.1.0",
   "private": true,
+  "description": "Mac 飞书远程助手：手机飞书入口，本机 Agent 执行（Codex / Cursor / Qoder / OpenCode）",
   "type": "module",
   "engines": {
     "node": ">=22.13"
+  },
+  "bin": {
+    "feishu-bridge": "./src/cli.mjs"
+  },
+  "files": [
+    "src",
+    "demo",
+    "README.md",
+    "config.example.json",
+    "connection.example.json"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lucienne999/feishu-bridge.git"
   },
   "scripts": {
     "init": "node src/cli.mjs init",

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {eligible, codexArgs, sessionKey, xml, resolveDirectory, failureMessage} from '../src/core.mjs';
+import {eligible, codexArgs, sessionKey, xml, resolveDirectory, failureMessage, helpMessage} from '../src/core.mjs';
 import {mkdtempSync,mkdirSync,symlinkSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
@@ -17,6 +17,8 @@ test('执行参数保留沙箱与明确会话，不把用户消息拼接成 shel
   assert.ok(a.includes('approval_policy="never"'));
   assert.deepEqual(a.slice(-3),['resume','thread-1','-']);
   assert.ok(!a.includes('--last'));
+  const withModel=codexArgs(null,'read-only','gpt-6-astra');
+  assert.ok(withModel.includes('-m') && withModel.includes('gpt-6-astra'));
 });
 test('LaunchAgent 路径正确转义',()=>assert.equal(xml('/a&b/<x>'),'/a&amp;b/&lt;x&gt;'));
 test('切换目录拒绝无效路径，并解析符号链接验证允许范围',()=>{
@@ -29,6 +31,14 @@ test('切换目录拒绝无效路径，并解析符号链接验证允许范围',
     assert.throws(()=>resolveDirectory(join(base,'missing')));
     assert.throws(()=>resolveDirectory(join(base,'allowed','link'),[join(base,'allowed')]));
   }finally {rmSync(base,{recursive:true});}
+});
+test('help 列出主要飞书命令',()=>{
+  const h=helpMessage();
+  assert.match(h,/\/help/);
+  assert.match(h,/\/status/);
+  assert.match(h,/\/cd/);
+  assert.match(h,/\/model/);
+  assert.match(h,/\/codex/);
 });
 test('失败消息说明失败阶段，并不回传原始诊断中的凭据',()=>{
   assert.match(failureMessage('Codex 启动',{code:'ENOENT'}),/找不到/);
