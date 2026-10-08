@@ -1,0 +1,40 @@
+{
+  "schema": "2.0",
+  "config": {
+    "update_multi": true,
+    "width_mode": "fill",
+    "summary": { "content": "执行失败" }
+  },
+  "header": {
+    "title": { "tag": "plain_text", "content": "stage1 / stage2 训练配置比较" },
+    "subtitle": { "tag": "plain_text", "content": "执行失败" },
+    "template": "red",
+    "text_tag_list": [
+      {
+        "tag": "text_tag",
+        "text": { "tag": "plain_text", "content": "出错" },
+        "color": "red"
+      }
+    ]
+  },
+  "body": {
+    "direction": "vertical",
+    "padding": "12px 12px 12px 12px",
+    "elements": [
+      {
+        "tag": "markdown",
+        "element_id": "el_b0",
+        "content": "**结论**\n\n执行失败：网络或远端服务不可用，请检查 Mac 联网后重试。",
+        "text_align": "left",
+        "margin": "0px 0px 4px 0px"
+      },
+      {
+        "tag": "markdown",
+        "element_id": "el_foot",
+        "content": "<font color='grey'>Codex · 出错</font>",
+        "text_align": "left",
+        "margin": "8px 0px 0px 0px"
+      }
+    ]
+  }
+}

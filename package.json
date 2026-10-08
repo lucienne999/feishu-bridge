@@ -1,0 +1,26 @@
+{
+  "name": "mac-feishu-bridge-local",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "init": "node src/cli.mjs init",
+    "setup": "node src/cli.mjs setup",
+    "start": "node src/cli.mjs start",
+    "doctor": "node src/cli.mjs doctor",
+    "test": "node --test",
+    "launchagent": "node src/cli.mjs launchagent",
+    "connect": "node src/cli.mjs connect",
+    "bindbot": "node src/cli.mjs bindbot",
+    "pair": "node src/pair.mjs",
+    "cursor:login": "node src/cursor-auth.mjs login",
+    "cursor:status": "node src/cursor-auth.mjs status",
+    "qcoder:login": "node src/qcoder-auth.mjs login",
+    "qcoder:status": "node src/qcoder-auth.mjs status",
+    "opencode:login": "node src/opencode-auth.mjs login",
+    "opencode:status": "node src/opencode-auth.mjs list"
+  }
+}

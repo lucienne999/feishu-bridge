@@ -1,0 +1,143 @@
+{
+  "schema": "2.0",
+  "config": {
+    "update_multi": true,
+    "width_mode": "fill",
+    "summary": {
+      "content": "SFT 和 Stage2 Pre 是同一份 cfg"
+    }
+  },
+  "header": {
+    "title": { "tag": "plain_text", "content": "SFT 和 Stage2 Pre 是同一份 cfg" },
+    "subtitle": { "tag": "plain_text", "content": "stage1 / stage2 训练配置比较" },
+    "template": "green",
+    "text_tag_list": [
+      {
+        "tag": "text_tag",
+        "text": { "tag": "plain_text", "content": "完成" },
+        "color": "green"
+      }
+    ]
+  },
+  "body": {
+    "direction": "vertical",
+    "padding": "12px 12px 12px 12px",
+    "elements": [
+      {
+        "tag": "markdown",
+        "element_id": "el_b0",
+        "content": "**结论**\n\n三阶段共用 configs_wm，靠 WM_TRAIN_PROFILE 和 WM_BACKBONE_VARIANT 分叉。SFT 和 Stage2 Pre 是同一份 stage2_drcv_light.py，差别几乎只在入口。",
+        "text_align": "left",
+        "margin": "0px 0px 4px 0px"
+      },
+      {
+        "tag": "table",
+        "element_id": "el_t1",
+        "page_size": 5,
+        "row_height": "low",
+        "freeze_first_column": true,
+        "header_style": {
+          "background_style": "grey",
+          "bold": true,
+          "text_align": "left"
+        },
+        "columns": [
+          {
+            "name": "c0",
+            "display_name": "项",
+            "width": "120px",
+            "data_type": "text",
+            "horizontal_align": "left"
+          },
+          {
+            "name": "c1",
+            "display_name": "Stage1",
+            "width": "auto",
+            "data_type": "text",
+            "horizontal_align": "left"
+          },
+          {
+            "name": "c2",
+            "display_name": "Stage2 Pre",
+            "width": "auto",
+            "data_type": "text",
+            "horizontal_align": "left"
+          },
+          {
+            "name": "c3",
+            "display_name": "Stage2 SFT",
+            "width": "auto",
+            "data_type": "text",
+            "horizontal_align": "left"
+          }
+        ],
+        "rows": [
+          { "c0": "epoch", "c1": "Light=1 / ViT=2", "c2": "Light=3 / ViT=1", "c3": "两边都是 1" },
+          { "c0": "lr", "c1": "Light=1e-4 / ViT=5e-4", "c2": "两边 1e-4", "c3": "两边 1e-4" },
+          { "c0": "FREEZE_WM", "c1": "不设", "c2": "默认 True", "c3": "默认 True" }
+        ]
+      },
+      {
+        "tag": "img",
+        "element_id": "el_img0",
+        "img_key": "img_v3_REPLACE_WITH_REAL_KEY",
+        "preview": true,
+        "scale_type": "fit_horizontal",
+        "corner_radius": "8px"
+      },
+      {
+        "tag": "collapsible_panel",
+        "element_id": "el_proc_box",
+        "expanded": false,
+        "header": {
+          "title": { "tag": "markdown", "content": "**过程 · 4 步**" },
+          "vertical_align": "center",
+          "icon": { "tag": "standard_icon", "token": "down-small-ccm_outlined" },
+          "icon_position": "right",
+          "icon_expanded_angle": -180
+        },
+        "border": { "color": "grey", "corner_radius": "6px" },
+        "padding": "8px 8px 8px 8px",
+        "elements": [
+          {
+            "tag": "markdown",
+            "element_id": "el_proc",
+            "content": "**过程**\n\n- 读了三份入口脚本。\n- 对照 variants / runtime / model_options。\n- 对照 base_wm 与 wm_train_defaults。\n- 按一张卡发出，不拆段。",
+            "text_align": "left",
+            "margin": "0px 0px 4px 0px"
+          }
+        ]
+      },
+      {
+        "tag": "collapsible_panel",
+        "element_id": "el_panel",
+        "expanded": false,
+        "header": {
+          "title": { "tag": "markdown", "content": "**依据**" },
+          "vertical_align": "center",
+          "icon": { "tag": "standard_icon", "token": "down-small-ccm_outlined" },
+          "icon_position": "right",
+          "icon_expanded_angle": -180
+        },
+        "border": { "color": "grey", "corner_radius": "6px" },
+        "padding": "8px 8px 8px 8px",
+        "elements": [
+          {
+            "tag": "markdown",
+            "element_id": "el_evi",
+            "content": "**工具**\n- read planner_wm_pretrain_stage1.sh\n- read variants.py\n\n**链接**\n- https://open.feishu.cn/document/feishu-cards/card-json-v2-structure",
+            "text_align": "left",
+            "margin": "0px 0px 4px 0px"
+          }
+        ]
+      },
+      {
+        "tag": "markdown",
+        "element_id": "el_foot",
+        "content": "<font color='grey'>grok-4.6 · xhigh · 48s · UniPrime · 完成</font>",
+        "text_align": "left",
+        "margin": "8px 0px 0px 0px"
+      }
+    ]
+  }
+}

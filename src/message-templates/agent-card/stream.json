@@ -1,0 +1,69 @@
+{
+  "schema": "2.0",
+  "config": {
+    "streaming_mode": true,
+    "update_multi": true,
+    "width_mode": "fill",
+    "summary": {
+      "content": "处理中 · stage1 / stage2 训练配置比较"
+    },
+    "streaming_config": {
+      "print_frequency_ms": { "default": 70 },
+      "print_step": { "default": 2 },
+      "print_strategy": "fast"
+    }
+  },
+  "header": {
+    "title": { "tag": "plain_text", "content": "stage1 / stage2 训练配置比较" },
+    "subtitle": { "tag": "plain_text", "content": "正在读入口脚本" },
+    "template": "blue",
+    "text_tag_list": [
+      {
+        "tag": "text_tag",
+        "text": { "tag": "plain_text", "content": "处理中" },
+        "color": "blue"
+      }
+    ]
+  },
+  "body": {
+    "direction": "vertical",
+    "padding": "12px 12px 12px 12px",
+    "elements": [
+      {
+        "tag": "markdown",
+        "element_id": "el_sub",
+        "content": "<font color='grey'>正在读入口脚本</font>",
+        "text_align": "left",
+        "margin": "0px 0px 4px 0px"
+      },
+      {
+        "tag": "markdown",
+        "element_id": "el_proc",
+        "content": "**过程**\n\n- 读了三份入口脚本。\n- 对照 variants / runtime / model_options。",
+        "text_align": "left",
+        "margin": "0px 0px 4px 0px"
+      },
+      {
+        "tag": "markdown",
+        "element_id": "el_body",
+        "content": "**结论**\n\n正在处理…",
+        "text_align": "left",
+        "margin": "0px 0px 4px 0px"
+      },
+      {
+        "tag": "markdown",
+        "element_id": "el_evi",
+        "content": " ",
+        "text_align": "left",
+        "margin": "0px 0px 4px 0px"
+      },
+      {
+        "tag": "markdown",
+        "element_id": "el_foot",
+        "content": "<font color='grey'>grok-4.6 · xhigh · 12s · UniPrime · 处理中</font>",
+        "text_align": "left",
+        "margin": "8px 0px 0px 0px"
+      }
+    ]
+  }
+}

@@ -1,0 +1,17 @@
+# Local runtime / secrets — never commit
+config.json
+connection.json
+bot-entry.png
+state*
+*.sqlite
+*.log
+local.launchagent.plist
+.env
+.env.*
+!.env.example
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/

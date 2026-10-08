@@ -1,0 +1,9 @@
+{
+  "appId": "cli_REPLACE_WITH_YOUR_APP_ID",
+  "botOpenId": "ou_REPLACE_WITH_YOUR_BOT_OPEN_ID",
+  "botName": "Your Bot Name",
+  "chatUrl": "https://applink.feishu.cn/client/bot/open?appId=cli_REPLACE_WITH_YOUR_APP_ID",
+  "transport": "lark-cli-events",
+  "checkedAt": "1970-01-01T00:00:00.000Z",
+  "eventSubscriptionReady": true
+}

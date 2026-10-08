@@ -1,0 +1,9 @@
+{
+  "workspace": "/Users/YOUR_NAME/projects/demo",
+  "allowedUsers": [
+    "ou_REPLACE_WITH_YOUR_OPEN_ID"
+  ],
+  "sandbox": "read-only",
+  "defaultMode": "codex",
+  "timeoutSeconds": 600
+}
