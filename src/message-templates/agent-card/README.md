@@ -1,6 +1,6 @@
 # 飞书 Agent 完成卡 JSON 规范
 
-本目录是 Mac `feishu-bridge` 的消息卡片模板与规范（源自火山云现网对齐稿）。`src/card.mjs` 会加载这里的 JSON 骨架并填充运行时内容：一张 schema 2.0 卡从「处理中」刷到「完成」，不拆成多条 `post`。
+本目录是 `feishu-bridge` 的消息卡片模板与规范（源自火山云现网对齐稿）。`src/card.mjs` 会加载这里的 JSON 骨架并填充运行时内容：一张 schema 2.0 卡从「处理中」刷到「完成」，不拆成多条 `post`。
 
 官方基础：[卡片 JSON 2.0](https://open.feishu.cn/document/feishu-cards/card-json-v2-structure)、[流式更新](https://open.feishu.cn/document/cardkit-v1/streaming-updates-openapi-overview)、[表格](https://open.feishu.cn/document/feishu-cards/card-json-v2-components/content-components/table)。
 

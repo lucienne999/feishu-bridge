@@ -2,7 +2,7 @@
   "name": "feishu-bridge",
   "version": "0.1.0",
   "private": true,
-  "description": "Mac 飞书远程助手：手机飞书入口，本机 Agent 执行（Codex / Cursor / Qoder / OpenCode）",
+  "description": "飞书远程助手：手机飞书入口，本机（macOS / Linux）Agent 执行（Codex / Cursor / Qoder / OpenCode）",
   "type": "module",
   "engines": {
     "node": ">=22.13"

@@ -1,6 +1,6 @@
-# Mac 飞书远程助手 · 本地原型
+# 飞书远程助手 · 本地原型
 
-Mac 是执行机器，手机飞书是入口。无需公网端口。本版通过已安装的 `lark-cli` 复用飞书应用配置，通过 `codex exec --json` 执行任务并续接会话。
+本机（macOS / Linux）是执行机器，手机飞书是入口。无需公网端口。本版通过已安装的 `lark-cli` 复用飞书应用配置，通过 `codex exec --json` 执行任务并续接会话。Windows 暂不支持，后续做平台适配。
 
 ## 当前支持
 
@@ -15,7 +15,7 @@ Mac 是执行机器，手机飞书是入口。无需公网端口。本版通过�
 | 命令 | 说明 |
 |------|------|
 | `/help` | 列出可用命令（未知斜杠命令也会回这份帮助） |
-| `/status` | Mac 是否在线、当前目录、执行器模式、**当前模型**、是否忙碌 |
+| `/status` | 本机是否在线、当前目录、执行器模式、**当前模型**、是否忙碌 |
 | `/cd 绝对路径` | 切换工作目录（支持 `~/`）；清除会话绑定；忙碌时不可用 |
 | `/codex [任务]` | 进入 Codex；可带任务，或之后直接发文字续接 |
 | `/cursor [任务]` | 进入 Cursor Agent |
@@ -27,11 +27,11 @@ Mac 是执行机器，手机飞书是入口。无需公网端口。本版通过�
 | `/exit` | 退出执行器模式；再发任务走 `defaultMode` |
 | `/new` | 开新会话：在执行器内只清当前模式会话；命令模式清全部 |
 | `/cancel` | 取消当前正在执行的任务 |
-| `/bindbot` | 提示到 Mac 运行 `feishu-bridge bindbot`（**勿在聊天发密钥**） |
+| `/bindbot` | 提示到本机运行 `feishu-bridge bindbot`（**勿在聊天发密钥**） |
 
 未进执行器时可直接发任务，使用 `config.json` 的 `defaultMode`（默认 `codex`）。`/cd` 与 `/new` 行为见下表「执行器」一节。
 
-这是可验证的原型：未包含业务 API 适配、审批卡片、附件、多机器路由、自动升级或消息补发。Codex 使用非交互模式；需要额外权限的操作会失败，不会自动越过沙箱。指定目录是工作与写入范围，不等于文件读取隔离；Mac 应用操作还可能需要系统隐私授权。不要把它当作通用桌面遥控器。
+这是可验证的原型：未包含业务 API 适配、审批卡片、附件、多机器路由、自动升级或消息补发。Codex 使用非交互模式；需要额外权限的操作会失败，不会自动越过沙箱。指定目录是工作与写入范围，不等于文件读取隔离；本机应用操作还可能需要系统隐私授权。不要把它当作通用桌面遥控器。
 
 ## 准备与安装（clone + npm）
 
@@ -46,7 +46,7 @@ cd feishu-bridge
 
 ### 2. 准备本机依赖与飞书应用
 
-1. 在 Mac 终端确认 `codex login status` 正常；未登录时运行 `codex login`。
+1. 在本机终端确认 `codex login status` 正常；未登录时运行 `codex login`。
 2. 未安装飞书 CLI 时执行 `npx @larksuite/cli@latest install`。
 3. 确认应用开启机器人能力、长连接事件接收，订阅 `im.message.receive_v1`，回调配置启用 `card.action.trigger`；有私聊消息读取 `im:message.p2p_msg:readonly`、以机器人发送消息 `im:message:send_as_bot`，以及更新卡片 `im:message:update`（或等价 `im:message`）权限；完成发布及可见范围配置。
 
@@ -93,9 +93,9 @@ npm run init -- --full --agents all
 
 其它常用参数：`--skip-pair`（跳过白名单配对）；`--app-id` + `--app-secret-stdin`（非交互绑定自定义 BOT）。若 Lark CLI 尚无应用，也可先 `lark-cli config init --new`。
 
-先发 `/status`，再 `/cd /Users/你的名字/projects/demo`；默认 Codex，可直接发任务。需要换模型时先 `/model` 查看列表，再 `/model 模型名`。完整命令表见上文「飞书命令」。忙碌期间不能切目录。重启后正在执行的任务标为 interrupted，不会自动重做。
+先发 `/status`，再 `/cd ~/projects/demo`；默认 Codex，可直接发任务。需要换模型时先 `/model` 查看列表，再 `/model 模型名`。完整命令表见上文「飞书命令」。忙碌期间不能切目录。重启后正在执行的任务标为 interrupted，不会自动重做。
 
-默认白名单用户可选择当前 macOS 账户能够访问的目录；若需要限定范围，在本目录 `config.json` 加入 `"allowedRoots": ["/Users/你的名字/projects"]`。把 `"defaultMode"` 改成 `cursor` / `qcoder` / `opencode` 可换默认执行器（需重启服务）。目录检查解析符号链接，不使用 shell 执行 `/cd` 的文本。
+默认白名单用户可选择当前系统账户能够访问的目录；若需要限定范围，在本目录 `config.json` 加入 `"allowedRoots": ["/home/你的名字/projects"]`（macOS 多为 `/Users/...`）。把 `"defaultMode"` 改成 `cursor` / `qcoder` / `opencode` 可换默认执行器（需重启服务）。目录检查解析符号链接，不使用 shell 执行 `/cd` 的文本。
 
 密钥由现有 CLI 管理，本工具不复制密钥。macOS 钥匙串在某些沙箱或后台上下文中不可用；先在交互终端验证，不要为跑通而降低钥匙串保护。诊断成功代表本地配置存在，不代表消息收发权限已完成实测。
 
@@ -131,7 +131,7 @@ rm "$HOME/Library/LaunchAgents/local.mac-feishu-bridge.plist"
 
 ## 在线与休眠
 
-Mac 必须开机、联网、用户会话可用且系统未休眠。锁屏或关闭显示器本身不等于系统休眠；合盖可能导致休眠。按需调整接电源时的系统睡眠设置。本工具不会修改睡眠设置，也不会唤醒已睡眠的机器。离线期间不保证事件补投；重新上线后请查看状态，必要时重新发送任务。
+本机必须开机、联网、用户会话可用且系统未休眠。锁屏或关闭显示器本身不等于系统休眠；笔记本合盖可能导致休眠。按需调整接电源时的系统睡眠设置。本工具不会修改睡眠设置，也不会唤醒已睡眠的机器。离线期间不保证事件补投；重新上线后请查看状态，必要时重新发送任务。
 
 ## 数据与限制
 
@@ -159,7 +159,7 @@ clone 运行时，本目录下的 `config.json`（白名单与项目目录）、
 
 本工具绑定的是当前 `lark-cli` 配置的应用机器人。当前本机绑定见 `connection.json` 的 `botName` / `appId`。
 
-在 Mac 终端运行 `npm run bindbot`（飞书里发 `/bindbot` 只会提示到本机操作，**不要在聊天里发密钥**）：
+在本机终端运行 `npm run bindbot`（飞书里发 `/bindbot` 只会提示到本机操作，**不要在聊天里发密钥**）：
 
 1. 先停止本地服务（前台退出，或已装 LaunchAgent 先 `bootout`）。
 2. 按提示填入新应用的 **App ID**（`cli_` 开头）和 **App Secret**（开放平台凭证，不是公私钥）。

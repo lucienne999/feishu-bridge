@@ -3,7 +3,7 @@ import {writeFileSync} from 'node:fs';
 import {join} from 'node:path';
 
 export function connectionInfo(status, response) {
-  if(!status.identities?.bot?.available) throw Error('飞书机器人未配置，请先在 Mac 终端运行 lark-cli config init。');
+  if(!status.identities?.bot?.available) throw Error('飞书机器人未配置，请先在本机终端运行 lark-cli config init。');
   if(!/^cli_[a-zA-Z0-9]+$/.test(status.appId || '')) throw Error('飞书 CLI 未返回有效的应用 ID。');
   if(status.brand !== 'feishu') throw Error('本版 connect 仅验证了飞书品牌，暂不生成 Lark 国际版入口。');
   if(response.ok !== true) throw Error('获取机器人信息失败。');
@@ -31,7 +31,7 @@ export function connect(root, env, {brief = false} = {}) {
           throw Error('当前 lark-cli 的 App ID / App Secret 无效。请在本机运行 npm run bindbot，填入开放平台真实凭证后重试。');
         }
       } catch (parsed) { if (parsed.message?.includes('npm run bindbot')) throw parsed; }
-      throw Error('飞书连接检查失败：请在 Mac 终端运行 lark-cli auth status，检查应用配置、网络和钥匙串访问。');
+      throw Error('飞书连接检查失败：请在本机终端运行 lark-cli auth status，检查应用配置、网络和凭据访问。');
     }
     const body=JSON.parse(out);
     if (body?.ok === false && (body?.error?.subtype === 'invalid_client' || body?.error?.code === 20048)) {

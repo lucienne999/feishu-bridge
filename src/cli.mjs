@@ -275,10 +275,10 @@ async function start() {
         ? providerLabel(ctx.mode)
         : `命令（默认 ${providerLabel(c.defaultMode)}）`;
       const model = getProviderModel(db, key, provider);
-      return send(e, `Mac 在线\n目录：${ctx.cwd}\n模式：${modeLine}\n模型：${model || '默认'}\n${active ? '有任务正在执行':'空闲'}`);
+      return send(e, `本机在线\n目录：${ctx.cwd}\n模式：${modeLine}\n模型：${model || '默认'}\n${active ? '有任务正在执行':'空闲'}`);
     }
     if (/^\/(?:bot|bindbot)$/i.test(text)) {
-      return send(e, '绑定/更换机器人请在 Mac 终端运行：npm run bindbot\n只需填写开放平台的 App ID 与 App Secret；不要在聊天里发送密钥。');
+      return send(e, '绑定/更换机器人请在本机终端运行：npm run bindbot\n只需填写开放平台的 App ID 与 App Secret；不要在聊天里发送密钥。');
     }
     if (text === '/cancel') {
       if (active?.key === key) { stopJob(active); return send(e,'已请求取消，等待执行进程退出。'); }

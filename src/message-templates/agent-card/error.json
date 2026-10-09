@@ -24,7 +24,7 @@
       {
         "tag": "markdown",
         "element_id": "el_b0",
-        "content": "**结论**\n\n执行失败：网络或远端服务不可用，请检查 Mac 联网后重试。",
+        "content": "**结论**\n\n执行失败：网络或远端服务不可用，请检查本机联网后重试。",
         "text_align": "left",
         "margin": "0px 0px 4px 0px"
       },
