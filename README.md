@@ -33,46 +33,52 @@ Mac 是执行机器，手机飞书是入口。无需公网端口。本版通过�
 
 这是可验证的原型：未包含业务 API 适配、审批卡片、附件、多机器路由、自动升级或消息补发。Codex 使用非交互模式；需要额外权限的操作会失败，不会自动越过沙箱。指定目录是工作与写入范围，不等于文件读取隔离；Mac 应用操作还可能需要系统隐私授权。不要把它当作通用桌面遥控器。
 
-## 快速开始（推荐 npx）
+## 准备与安装（clone + npm）
 
-需要 Node.js 22.13+（含 `node:sqlite`）。本工具无 npm 外部依赖；运行时数据默认写在 `~/.feishu-bridge/`（可用环境变量 `FEISHU_BRIDGE_HOME` 覆盖）。若你是从 git clone 开发且目录里已有 `config.json`，则继续使用该目录，行为与以前一致。
+需要 Node.js 22.13+（含 `node:sqlite`）。本工具无 npm 外部依赖；clone 后在仓库目录运行时，`config.json` / `state.sqlite` 等会写在本目录（已 gitignore）。也可用环境变量 `FEISHU_BRIDGE_HOME` 指定数据目录。
+
+### 1. 克隆仓库
+
+```sh
+git clone https://github.com/lucienne999/feishu-bridge.git
+cd feishu-bridge
+```
+
+### 2. 准备本机依赖与飞书应用
 
 1. 在 Mac 终端确认 `codex login status` 正常；未登录时运行 `codex login`。
 2. 未安装飞书 CLI 时执行 `npx @larksuite/cli@latest install`。
 3. 确认应用开启机器人能力、长连接事件接收，订阅 `im.message.receive_v1`，回调配置启用 `card.action.trigger`；有私聊消息读取 `im:message.p2p_msg:readonly`、以机器人发送消息 `im:message:send_as_bot`，以及更新卡片 `im:message:update`（或等价 `im:message`）权限；完成发布及可见范围配置。
-4. 初始化（通常只需一次）：
+
+### 3. 初始化与启动
 
 ```sh
-npx --yes github:lucienne999/feishu-bridge init
+npm run init    # 通常只需一次：检查依赖、飞书 BOT、白名单配对
+npm start       # 启动长连接；看到「飞书订阅已就绪」后即可用手机私聊
 ```
 
-5. 启动：
+手机上先发 `/status` 或 `/help` 验证收发。
 
-```sh
-npx --yes github:lucienne999/feishu-bridge start
-```
+常用脚本：
 
-看到“飞书订阅已就绪”后，在手机上私聊机器人，先发 `/status` 或 `/help`。
+| 命令 | 说明 |
+|------|------|
+| `npm run init` | 依赖检查 + 飞书 BOT + 配对 |
+| `npm start` | 启动长连接服务 |
+| `npm run doctor` | 诊断本机配置（会打印数据目录） |
+| `npm run connect` / `pair` / `setup` / `bindbot` | 手工分步 |
+| `npm run launchagent` | 生成 macOS 登录自启 plist |
+| `npm test` | 本地单测 |
 
-常用命令（`npx …` 后跟子命令；clone 开发时也可用 `npm run <script>`）：
+### `npm run init` 细节
 
-| 子命令 | 说明 |
-|--------|------|
-| `init` | 依赖检查 + 飞书 BOT + 配对 |
-| `start` | 启动长连接服务 |
-| `doctor` | 诊断本机配置（会打印数据目录） |
-| `connect` / `pair` / `setup` / `bindbot` | 手工分步 |
-| `launchagent` | 生成 macOS 登录自启 plist |
-
-### `init` 细节
-
-**默认：`npx --yes github:lucienne999/feishu-bridge init`**
+**默认：`npm run init`**
 
 1. 安装 Codex CLI（已装则跳过）
 2. 检查登录；未登录则拉起 `codex login`
 3. 再继续飞书配置 / 配对（默认复用 Lark CLI 已配置的 BOT；无 BOT 时提示填写 App ID / App Secret）
 
-**全量：`npx --yes github:lucienne999/feishu-bridge init --full`**
+**全量：`npm run init -- --full`**
 
 1. 安装全部 Agent（Codex / Cursor / Qoder / OpenCode；已装则跳过）
 2. 提示选择要做登录初始化的 Agent（可多选）
@@ -81,33 +87,40 @@ npx --yes github:lucienne999/feishu-bridge start
 非交互全量可指定 Agent，例如：
 
 ```sh
-npx --yes github:lucienne999/feishu-bridge init --full --agents codex,cursor
-npx --yes github:lucienne999/feishu-bridge init --full --agents all
+npm run init -- --full --agents codex,cursor
+npm run init -- --full --agents all
 ```
 
 其它常用参数：`--skip-pair`（跳过白名单配对）；`--app-id` + `--app-secret-stdin`（非交互绑定自定义 BOT）。若 Lark CLI 尚无应用，也可先 `lark-cli config init --new`。
 
-本地开发（可选）：`git clone` 后在仓库目录 `npm run init` / `npm start`，与 npx 等价。
-
 先发 `/status`，再 `/cd /Users/你的名字/projects/demo`；默认 Codex，可直接发任务。需要换模型时先 `/model` 查看列表，再 `/model 模型名`。完整命令表见上文「飞书命令」。忙碌期间不能切目录。重启后正在执行的任务标为 interrupted，不会自动重做。
 
-默认白名单用户可选择当前 macOS 账户能够访问的目录；若需要限定范围，在数据目录的 `config.json` 加入 `"allowedRoots": ["/Users/你的名字/projects"]`。把 `"defaultMode"` 改成 `cursor` / `qcoder` / `opencode` 可换默认执行器（需重启服务）。目录检查解析符号链接，不使用 shell 执行 `/cd` 的文本。
+默认白名单用户可选择当前 macOS 账户能够访问的目录；若需要限定范围，在本目录 `config.json` 加入 `"allowedRoots": ["/Users/你的名字/projects"]`。把 `"defaultMode"` 改成 `cursor` / `qcoder` / `opencode` 可换默认执行器（需重启服务）。目录检查解析符号链接，不使用 shell 执行 `/cd` 的文本。
 
 密钥由现有 CLI 管理，本工具不复制密钥。macOS 钥匙串在某些沙箱或后台上下文中不可用；先在交互终端验证，不要为跑通而降低钥匙串保护。诊断成功代表本地配置存在，不代表消息收发权限已完成实测。
 
-## 登录后自动启动
+### 可选：不 clone，用 npx
 
-先在前台完成手机收发验证，再运行 `npx --yes github:lucienne999/feishu-bridge launchagent`（或 `npm run launchagent`）。生成的 plist 只含路径和运行配置，不含凭据；文件在数据目录（见 `doctor` 输出）。
+不想落盘仓库时，也可直接：
 
 ```sh
-DATA="${FEISHU_BRIDGE_HOME:-$HOME/.feishu-bridge}"
-# 若从已配置的 git clone 运行，DATA 可能是该仓库目录
+npx --yes github:lucienne999/feishu-bridge init
+npx --yes github:lucienne999/feishu-bridge start
+```
+
+此时运行时数据默认写在 `~/.feishu-bridge/`（可用 `FEISHU_BRIDGE_HOME` 覆盖）。子命令与上表相同（把 `npm run X` 换成 `npx --yes github:lucienne999/feishu-bridge X`）。日常使用与排错更推荐 clone + npm。
+
+## 登录后自动启动
+
+先在前台完成手机收发验证，再在仓库目录运行 `npm run launchagent`。生成的 plist 只含路径和运行配置，不含凭据；默认写在本仓库目录的 `local.launchagent.plist`（若用了 `FEISHU_BRIDGE_HOME` / npx，则在对应数据目录，可用 `npm run doctor` 确认）。
+
+```sh
 mkdir -p "$HOME/Library/LaunchAgents"
-cp "$DATA/local.launchagent.plist" "$HOME/Library/LaunchAgents/local.mac-feishu-bridge.plist"
+cp local.launchagent.plist "$HOME/Library/LaunchAgents/local.mac-feishu-bridge.plist"
 launchctl bootstrap "gui/$(id -u)" "$HOME/Library/LaunchAgents/local.mac-feishu-bridge.plist"
 ```
 
-启动后台服务前先停止前台实例。服务日志在数据目录的 `service.log` / `service-error.log`。用 npx 更新代码后请重新生成并安装 LaunchAgent（plist 里写死了当时的 CLI 路径）。LaunchAgent 在用户登录后运行，退出登录后停止。若后台钥匙串访问失败，先解决该访问问题。
+启动后台服务前先停止前台实例。服务日志在数据目录的 `service.log` / `service-error.log`。仓库路径变更或更新代码后请重新生成并安装 LaunchAgent。LaunchAgent 在用户登录后运行，退出登录后停止。若后台钥匙串访问失败，先解决该访问问题。
 
 停止并卸载后台项：
 
@@ -122,9 +135,9 @@ Mac 必须开机、联网、用户会话可用且系统未休眠。锁屏或关�
 
 ## 数据与限制
 
-运行时文件在数据目录（默认 `~/.feishu-bridge/`）：`config.json`（白名单与项目目录）、`connection.json`（机器人身份，无 Secret）、`state.sqlite`（消息去重与会话）。Codex 自行保存其会话。请勿把这些文件提交或分享。去重记录持久保留，原型未做自动清理。结果超过长度限制会截断；回复失败不会重复执行任务。程序避免把用户消息拼接成 shell 命令，消息通过标准输入交给 Codex。
+clone 运行时，本目录下的 `config.json`（白名单与项目目录）、`connection.json`（机器人身份，无 Secret）、`state.sqlite`（消息去重与会话）为运行时文件，已 gitignore，请勿提交或分享。用 npx 且未设置 `FEISHU_BRIDGE_HOME` 时，这些文件在 `~/.feishu-bridge/`。Codex 自行保存其会话。去重记录持久保留，原型未做自动清理。结果超过长度限制会截断；回复失败不会重复执行任务。程序避免把用户消息拼接成 shell 命令，消息通过标准输入交给 Codex。
 
-`init` 会检查依赖并完成本地飞书连接与配对，但不会代替飞书管理员在开放平台完成授权与订阅。
+`npm run init` 会检查依赖并完成本地飞书连接与配对，但不会代替飞书管理员在开放平台完成授权与订阅。
 
 ## 开发验证
 
@@ -132,11 +145,11 @@ Mac 必须开机、联网、用户会话可用且系统未休眠。锁屏或关�
 
 ## 自动获取飞书机器人入口
 
-运行 `feishu-bridge connect`（或 `npm run connect`）。它复用当前 `lark-cli` 配置，读取已启用机器人的名称、应用 ID 和机器人身份，生成官方 AppLink 聊天入口，并进行三秒接收事件探测。此检查只读，不发送消息、不配置新应用、不修改飞书后台订阅。
+运行 `npm run connect`。它复用当前 `lark-cli` 配置，读取已启用机器人的名称、应用 ID 和机器人身份，生成官方 AppLink 聊天入口，并进行三秒接收事件探测。此检查只读，不发送消息、不配置新应用、不修改飞书后台订阅。
 
 `connection.json` 只保存机器人身份、入口和检查结果，不含 App Secret 或访问令牌。启动时核对当前 CLI 应用，避免更换配置后静默连接另一机器人。若检查失败，会明确返回失败状态；“接收事件已就绪”仍不代表回复权限和手机联调通过。
 
-随后运行 `init` / `pair` 完成白名单，再 `start`。打开入口发送 `/status` 验证。当前入口属于应用机器人；长连接承担消息接收，聊天入口不是 Webhook。已有 Aily 智能体需要独立确认其接入能力，本命令不会自动绑定。
+随后运行 `npm run init` 或 `npm run pair` 完成白名单，再 `npm start`。打开入口发送 `/status` 验证。当前入口属于应用机器人；长连接承担消息接收，聊天入口不是 Webhook。已有 Aily 智能体需要独立确认其接入能力，本命令不会自动绑定。
 
 官方依据：
 - 机器人信息：https://open.feishu.cn/document/client-docs/bot-v3/obtain-bot-info
@@ -144,33 +157,35 @@ Mac 必须开机、联网、用户会话可用且系统未休眠。锁屏或关�
 
 ## 换新机器人
 
-本工具绑定的是当前 `lark-cli` 配置的应用机器人。当前本机绑定见数据目录 `connection.json` 的 `botName` / `appId`。
+本工具绑定的是当前 `lark-cli` 配置的应用机器人。当前本机绑定见 `connection.json` 的 `botName` / `appId`。
 
-在 Mac 终端运行 `npx --yes github:lucienne999/feishu-bridge bindbot`（飞书里发 `/bindbot` 只会提示到本机操作，**不要在聊天里发密钥**）：
+在 Mac 终端运行 `npm run bindbot`（飞书里发 `/bindbot` 只会提示到本机操作，**不要在聊天里发密钥**）：
 
 1. 先停止本地服务（前台退出，或已装 LaunchAgent 先 `bootout`）。
 2. 按提示填入新应用的 **App ID**（`cli_` 开头）和 **App Secret**（开放平台凭证，不是公私钥）。
 3. 程序会写入本机 `lark-cli` 配置、自动拉取机器人 open_id / 名称 / 聊天入口，并清除旧白名单。
-4. `start` 重新配对后，在新机器人私聊发送 `/status` 验证。
+4. `npm start` 重新配对后，在新机器人私聊发送 `/status` 验证。
 
-非交互写法：`printf '%s' "$APP_SECRET" | npx --yes github:lucienne999/feishu-bridge bindbot --app-id cli_xxx --app-secret-stdin`。新应用仍需机器人能力、长连接与上文权限/订阅；`botOpenId` 无需手填。
+非交互写法：`printf '%s' "$APP_SECRET" | npm run bindbot -- --app-id cli_xxx --app-secret-stdin`。新应用仍需机器人能力、长连接与上文权限/订阅；`botOpenId` 无需手填。
 
 ## 不查 open_id 的首次配对
 
-已有机器人入口后，运行 `feishu-bridge pair`（或走 `init`）。等待“配对监听已就绪”，把终端显示的 `/pair 一次性配对码` 发到该机器人的私聊中。程序只接受五分钟内收到的匹配文本，读取发送者的 open_id 并新建本地 config.json；群消息、错误配对码、旧消息不会写入白名单。配对码不要分享给他人。已有配置时拒绝覆盖。
+已有机器人入口后，运行 `npm run pair`（或走 `npm run init`）。等待“配对监听已就绪”，把终端显示的 `/pair 一次性配对码` 发到该机器人的私聊中。程序只接受五分钟内收到的匹配文本，读取发送者的 open_id 并新建本地 config.json；群消息、错误配对码、旧消息不会写入白名单。配对码不要分享给他人。已有配置时拒绝覆盖。
 
-初次配对默认只读模式，初始目录为数据目录下的 `demo`，之后可用 `/cd` 切换。配对成功后运行 `start`，再发送 `/status` 验证收发。要允许修改选中的项目，在本机将 `config.json` 的 sandbox 改为 workspace-write 并重启服务。配对程序不调用 Codex，也不发送飞书消息；成功提示显示在本机终端。
+初次配对默认只读模式，初始目录为仓库内 `demo`，之后可用 `/cd` 切换。配对成功后运行 `npm start`，再发送 `/status` 验证收发。要允许修改选中的项目，在本机将 `config.json` 的 sandbox 改为 workspace-write 并重启服务。配对程序不调用 Codex，也不发送飞书消息；成功提示显示在本机终端。
 
 ## 推荐入口
 
 新环境优先：
 
 ```sh
-npx --yes github:lucienne999/feishu-bridge init
-npx --yes github:lucienne999/feishu-bridge start
+git clone https://github.com/lucienne999/feishu-bridge.git
+cd feishu-bridge
+npm run init
+npm start
 ```
 
-- `start`：已绑定则直接启动；若尚未配对，仍会自动 `connect` + `pair`（兼容旧流程）。
+- `npm start`：已绑定则直接启动；若尚未配对，仍会自动 `connect` + `pair`（兼容旧流程）。
 - 绑定默认只读，不自动授予修改权限。`setup` / `connect` / `pair` / `bindbot` 保留用于手工诊断。
 
 缺少依赖或开放平台权限时，`init` 会给出明确失败原因；飞书后台订阅与发布仍需管理员完成。
