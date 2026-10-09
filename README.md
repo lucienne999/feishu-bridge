@@ -35,7 +35,19 @@
 
 ## 准备与安装（clone + npm）
 
-需要 Node.js 22.13+（含 `node:sqlite`）。本工具无 npm 外部依赖；clone 后在仓库目录运行时，`config.json` / `state.sqlite` 等会写在本目录（已 gitignore）。也可用环境变量 `FEISHU_BRIDGE_HOME` 指定数据目录。
+需要 Node.js 22.13+（内置 `node:sqlite`，并使用可选链等较新 JS 语法）。注意 `package.json` 的 `engines` 字段默认只警告不拦截：系统源安装的 Node 常偏旧（如 Ubuntu 22.04 apt 是 12.x），旧版 Node 会在启动阶段直接报 `SyntaxError: Unexpected token '.'`。版本不够时先升级（任选其一）：
+
+```sh
+# nvm（推荐）：先装 nvm（git clone 方式），再用它装 Node 22
+git clone https://github.com/nvm-sh/nvm.git ~/.nvm && echo 'export NVM_DIR="$HOME/.nvm"' >> ~/.bashrc && echo '[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"' >> ~/.bashrc && source ~/.bashrc
+nvm install 22 && nvm use 22
+
+# 或 NodeSource（Debian / Ubuntu），全局替换系统 node：
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt-get install -y nodejs
+```
+
+`npm run init` / `npm start` / `npm run doctor` 启动前会做版本预检，不满足时直接提示版本要求与升级方法。本工具无 npm 外部依赖；clone 后在仓库目录运行时，`config.json` / `state.sqlite` 等会写在本目录（已 gitignore）。也可用环境变量 `FEISHU_BRIDGE_HOME` 指定数据目录。
 
 ### 1. 克隆仓库
 
@@ -53,6 +65,7 @@ cd feishu-bridge
 ### 3. 初始化与启动
 
 ```sh
+# 先确认 node --version ≥ 22.13；Ubuntu apt 的 nodejs/npm 偏旧（12.x），请按上一节方式安装
 npm run init    # 通常只需一次：检查依赖、飞书 BOT、白名单配对
 npm start       # 启动长连接；看到「飞书订阅已就绪」后即可用手机私聊
 ```

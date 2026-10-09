@@ -7,6 +7,7 @@ import {assertServiceStopped, switchBot} from './bot.mjs';
 import {cursorBinary, qoderBinary, opencodeBinary, providerLabel} from './providers.mjs';
 import {ensureAgentTools, withLocalBinPath} from './tools-install.mjs';
 import {ensureAgentAuth, resolveAuthAgents, agentLoggedIn, AUTH_AGENTS} from './agent-auth.mjs';
+import {nodeVersionError} from './check-node.mjs';
 
 const LARK_CLI_INSTALL = 'npx @larksuite/cli@latest install';
 
@@ -63,8 +64,8 @@ export function checkPrerequisites(root, env, {
     }
   };
   check('Node', () => {
-    const major = Number(process.versions.node.split('.')[0]);
-    if (major < 22) throw Error(`需要 Node.js 22+，当前 ${process.versions.node}`);
+    const err = nodeVersionError();
+    if (err) throw err;
   });
   check('Lark CLI', () => {
     try { exec('lark-cli', ['--version'], {cwd: root, env: e, encoding: 'utf8', timeout: 15000, stdio: ['ignore', 'pipe', 'pipe']}); }

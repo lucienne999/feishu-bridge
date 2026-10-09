@@ -22,10 +22,10 @@
     "url": "git+https://github.com/lucienne999/feishu-bridge.git"
   },
   "scripts": {
-    "init": "node src/cli.mjs init",
+    "init": "node src/check-node.mjs && node src/cli.mjs init",
     "setup": "node src/cli.mjs setup",
-    "start": "node src/cli.mjs start",
-    "doctor": "node src/cli.mjs doctor",
+    "start": "node src/check-node.mjs && node src/cli.mjs start",
+    "doctor": "node src/check-node.mjs && node src/cli.mjs doctor",
     "test": "node --test",
     "launchagent": "node src/cli.mjs launchagent",
     "connect": "node src/cli.mjs connect",
