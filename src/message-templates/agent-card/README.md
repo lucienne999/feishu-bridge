@@ -111,6 +111,6 @@ CardKit `streaming_mode=true`。顺序：副标题 → 过程（展开）→ 结
 
 ## 权限（对方自己的应用）
 
-最少：`im:message`、`im:message:send_as_bot`、`cardkit:card:write`、`im:resource`、`im:resource:upload`。事件走长连接：`im.message.receive_v1`；按钮走 `card.action.trigger`。
+最少：`im:message`、`im:message:send_as_bot`、`cardkit:card:write`、`im:resource`、`im:resource:upload`。事件走长连接：`im.message.receive_v1`。当前卡片只使用链接按钮，不需要 `card.action.trigger`。
 
 同一飞书 App 只能有一条长连接。不要复用别人的 App ID / Secret。

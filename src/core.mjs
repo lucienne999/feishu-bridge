@@ -7,7 +7,8 @@ export function eligible(e, config, now = Date.now()) {
 }
 export function sessionKey(e) { return `${e.sender_id}:${e.chat_id}`; }
 export function codexArgs(session, sandbox, model) {
-  const args = ['exec', '--ignore-user-config', '--ignore-rules', '-c', `sandbox_mode="${sandbox}"`, '-c', 'approval_policy="never"', '--json', '--skip-git-repo-check'];
+  // 保留用户配置（model_provider / base_url 中转等），sandbox 与 approval 仍由下方 -c 强制覆盖。
+  const args = ['exec', '--ignore-rules', '-c', `sandbox_mode="${sandbox}"`, '-c', 'approval_policy="never"', '--json', '--skip-git-repo-check'];
   if (model) args.push('-m', model);
   return session ? [...args, 'resume', session, '-'] : [...args, '-'];
 }
@@ -34,7 +35,7 @@ export function helpMessage() {
     '/help — 显示本帮助',
     '/status — 在线状态、目录、执行器、模型、是否忙碌',
     '/cd 绝对路径 — 切换工作目录（支持 ~/）',
-    '/codex|/cursor|/qcoder|/opencode [任务] — 进入对应执行器',
+    '/codex|/cursor|/qoder|/opencode [任务] — 进入对应执行器',
     '/model — 列出当前执行器可用模型',
     '/model 模型名 — 设置模型；/model clear 恢复默认',
     '/exit — 退出执行器，再发任务走 defaultMode',

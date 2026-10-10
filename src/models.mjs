@@ -71,7 +71,7 @@ export function listModels(provider, {
   }
   let bin, args;
   if (provider === 'cursor') { bin = cursorBinary(); args = ['models']; }
-  else if (provider === 'qcoder') { bin = qoderBinary(); args = ['--list-models']; }
+  else if (provider === 'qoder') { bin = qoderBinary(); args = ['--list-models']; }
   else if (provider === 'opencode') { bin = opencodeBinary(); args = ['models']; }
   else throw Error('不支持的执行器');
   let out = '';

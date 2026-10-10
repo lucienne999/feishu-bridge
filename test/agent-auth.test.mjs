@@ -7,8 +7,8 @@ import {
 } from '../src/agent-auth.mjs';
 
 test('parseAgentsFlag 支持编号、名称与全部', () => {
-  assert.deepEqual(parseAgentsFlag('all'), ['codex', 'cursor', 'qcoder', 'opencode']);
-  assert.deepEqual(parseAgentsFlag('1,3'), ['codex', 'qcoder']);
+  assert.deepEqual(parseAgentsFlag('all'), ['codex', 'cursor', 'qoder', 'opencode']);
+  assert.deepEqual(parseAgentsFlag('1,3'), ['codex', 'qoder']);
   assert.deepEqual(parseAgentsFlag('codex, cursor'), ['codex', 'cursor']);
   assert.throws(() => parseAgentsFlag('foo'), /未知 Agent/);
 });
@@ -48,6 +48,6 @@ test('resolveAuthAgents：默认只选 Codex；full 可交互或多选', async (
   );
   assert.deepEqual(
     await resolveAuthAgents({full: true}, {ask: async () => '', log: () => {}}),
-    ['codex', 'cursor', 'qcoder', 'opencode'],
+    ['codex', 'cursor', 'qoder', 'opencode'],
   );
 });

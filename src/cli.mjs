@@ -12,7 +12,7 @@ import {assertServiceStopped, switchBot} from './bot.mjs';
 import {parseInitArgs, init} from './init.mjs';
 import {AGENT_MODES, cursorBinary, qoderBinary, opencodeBinary, providerSpec, providerEvent, providerSessionKey, providerSessionIds, providerLabel, normalizeDefaultMode} from './providers.mjs';
 import {parseModelCommand, resolveModelProvider, listModels, formatModelList, assertKnownModel} from './models.mjs';
-import {withLocalBinPath} from './tools-install.mjs';
+import {INSTALL_HINTS, installInternalTools, withLocalBinPath} from './tools-install.mjs';
 import {buildStreamCard, buildFinalCard, buildStoppedCard, buildErrorCard, cardJson} from './card.mjs';
 import {cliEntryPath, ensureDataLayout, packageRootFrom, resolveDataRoot} from './paths.mjs';
 function clearProviderSessions(db, key) {
@@ -35,18 +35,18 @@ const cliPath = cliEntryPath(import.meta.url);
 const configPath = join(root, 'config.json');
 const env = withLocalBinPath({...process.env, LARKSUITE_CLI_NO_UPDATE_NOTIFIER:'1', LARKSUITE_CLI_NO_SKILLS_NOTIFIER:'1'});
 const command = process.argv[2] || 'doctor';
-const LARK_CLI_INSTALL = 'npx @larksuite/cli@latest install';
 function run(bin, args) { return execFileSync(bin, args, {encoding:'utf8', env, timeout:15000, stdio:['ignore','pipe','pipe']}); }
 function requireLarkCli() {
   try { run('lark-cli', ['--version']); }
   catch (e) {
-    if (e?.code === 'ENOENT') throw Error(`未检测到 Lark CLI（lark-cli）。请先安装：\n${LARK_CLI_INSTALL}\n安装完成后重新运行 feishu-bridge start（或 npm start）。`);
+    if (e?.code === 'ENOENT') throw Error(`未检测到 Lark CLI（lark-cli）。请先安装：\n${INSTALL_HINTS.lark.installCmd}\n安装完成后重新运行 feishu-bridge start（或 npm start）。`);
   }
 }
 function load() {
   const c = JSON.parse(readFileSync(configPath, 'utf8'));
   if (!c.allowedUsers?.length || c.allowedUsers.some(x => !/^ou_[a-zA-Z0-9]+$/.test(x))) throw Error('请先运行 feishu-bridge init（或 npm run setup）配置允许的飞书用户。');
-  if (!['read-only','workspace-write'].includes(c.sandbox)) throw Error('无效的 sandbox 配置');
+  // danger-full-access 无沙箱不审批，供 bwrap 不可用的机器使用；命令直接以本机身份执行，风险自负。
+  if (!['read-only','workspace-write','danger-full-access'].includes(c.sandbox)) throw Error('无效的 sandbox 配置');
   c.defaultMode = normalizeDefaultMode(c.defaultMode);
   c.workspace = realpathSync(c.workspace);
   return c;
@@ -141,19 +141,23 @@ async function runInit() {
     if (process.stdin.isTTY) process.stdin.pause();
   }
 }
+function internalInstall() {
+  installInternalTools({env, log: console.log});
+  console.log('公司内部工具安装完成：dr CLI、tjob、skillctl。');
+}
 function doctor() {
   try {run(cursorBinary(),['--version']);console.log('Cursor CLI：已安装（登录请运行 npm run cursor:login）');}
-  catch {console.log('Cursor CLI：未安装或不可用；可用 npm run init -- --full 安装。');}
-  try {run(qoderBinary(),['--version']);console.log('Qoder CLI：已安装（登录请运行 npm run qcoder:login）');}
-  catch {console.log('Qoder CLI：未安装或不可用；可用 npm run init -- --full 安装。');}
+  catch {console.log(`Cursor CLI：未安装或不可用；安装：${INSTALL_HINTS.cursor.installCmd}`);}
+  try {run(qoderBinary(),['--version']);console.log('Qoder CLI：已安装（登录请运行 npm run qoder:login）');}
+  catch {console.log(`Qoder CLI：未安装或不可用；安装：${INSTALL_HINTS.qoder.installCmd}`);}
   try {run(opencodeBinary(),['--version']);console.log('OpenCode：已安装（登录请运行 npm run opencode:login）');}
-  catch {console.log('OpenCode：未安装或不可用；可用 npm run init -- --full 安装。');}
+  catch {console.log(`OpenCode：未安装或不可用；安装：${INSTALL_HINTS.opencode.installCmd}`);}
   let larkInstalled=true;
   try {run('lark-cli',['--version']);console.log('Lark CLI：已安装');}
   catch (e) {
     larkInstalled=false;
     console.log(e?.code === 'ENOENT'
-      ? `Lark CLI：未安装。请先执行：${LARK_CLI_INSTALL}`
+      ? `Lark CLI：未安装。请先执行：${INSTALL_HINTS.lark.installCmd}`
       : 'Lark CLI：检查失败，请在终端确认 lark-cli 是否可用。');
     process.exitCode=1;
   }
@@ -207,42 +211,53 @@ async function start() {
   writeFileSync(lock,String(process.pid),{flag:'wx',mode:0o600});
   process.on('exit',()=>{try {unlinkSync(lock);} catch {}});
   const db = new DatabaseSync(join(root,'state.sqlite'));
+  process.on('exit',()=>{try {db.close();} catch {}});
   db.exec('CREATE TABLE IF NOT EXISTS messages(id TEXT PRIMARY KEY, status TEXT); CREATE TABLE IF NOT EXISTS sessions(id TEXT PRIMARY KEY, thread TEXT); CREATE TABLE IF NOT EXISTS contexts(id TEXT PRIMARY KEY, cwd TEXT, mode TEXT); CREATE TABLE IF NOT EXISTS models(id TEXT PRIMARY KEY, model TEXT);');
   db.exec("UPDATE messages SET status='interrupted' WHERE status='running'");
   let active = null;
   function runCli(args, timeoutMs = 15000) {
     return new Promise((resolve,reject) => {
       const p = spawn('lark-cli', args, {env, stdio:['ignore','pipe','pipe']});
-      let out=''; p.stdout.on('data',b=>out+=b);
-      p.stderr.resume();
+      let out='', err=''; p.stdout.on('data',b=>out+=b); p.stderr.on('data',b=>err+=b);
       const timer=setTimeout(()=>p.kill('SIGTERM'),timeoutMs);
       p.on('error',reject);
-      p.on('close',code=>{clearTimeout(timer); resolve({code, out});});
+      p.on('close',code=>{clearTimeout(timer); resolve({code, out, err});});
     });
   }
   function parseOk(out) {
-    try { return JSON.parse(out); } catch { return null; }
+    try { return JSON.parse(out); }
+    catch {
+      const lines=String(out || '').trim().split(/\r?\n/).filter(Boolean);
+      for (let i=lines.length-1; i>=0; i--) {
+        try { return JSON.parse(lines[i]); } catch {}
+      }
+      return null;
+    }
+  }
+  function cliFailure(prefix, code, err) {
+    const detail=String(err || '').replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, '').trim().slice(-1000);
+    return `${prefix}${code == null ? '（进程未正常退出）' : `（退出码 ${code}）`}${detail ? `：${detail}` : ''}`;
   }
   function extractMessageId(payload) {
     return payload?.data?.message_id || payload?.data?.message?.message_id || payload?.message_id;
   }
   async function send(e, text) {
-    const {code, out} = await runCli(['im','+messages-reply','--message-id',e.message_id,'--text',text.slice(0,7000),'--as','bot']);
+    const {code, out, err} = await runCli(['im','+messages-reply','--message-id',e.message_id,'--text',text.slice(0,7000),'--as','bot']);
     const payload = parseOk(out);
-    if (code || !payload?.ok) throw Error('飞书回复失败，请检查发消息权限；任务不会因此重新执行。');
+    if (code || !payload?.ok) throw Error(cliFailure('飞书回复失败，请检查发消息权限',code,err));
   }
   async function replyCard(e, card) {
-    const {code, out} = await runCli(['im','+messages-reply','--message-id',e.message_id,'--msg-type','interactive','--content',cardJson(card),'--as','bot'], 20000);
+    const {code, out, err} = await runCli(['im','+messages-reply','--message-id',e.message_id,'--msg-type','interactive','--content',cardJson(card),'--as','bot'], 20000);
     const payload = parseOk(out);
     const messageId = extractMessageId(payload);
-    if (code || !payload?.ok || !messageId) throw Error('飞书卡片回复失败，请检查发消息与卡片权限；任务不会因此重新执行。');
+    if (code || !payload?.ok || !messageId) throw Error(cliFailure('飞书卡片回复失败，请检查发消息与卡片权限',code,err));
     return messageId;
   }
   async function patchCard(messageId, card) {
     const data = JSON.stringify({content: cardJson(card)});
-    const {code, out} = await runCli(['im','messages','patch','--message-id',messageId,'--data',data,'--as','bot'], 20000);
+    const {code, out, err} = await runCli(['im','messages','patch','--message-id',messageId,'--data',data,'--as','bot'], 20000);
     const payload = parseOk(out);
-    if (code || (payload && payload.ok === false)) throw Error('飞书卡片更新失败，请检查 im:message:update 权限。');
+    if (code || !payload?.ok) throw Error(cliFailure('飞书卡片更新失败，请检查 im:message:update 权限',code,err));
   }
   async function updateJobCard(job, card) {
     if (!job.cardId) {
@@ -292,7 +307,7 @@ async function start() {
       saveContext(); clearProviderSessions(db, key);
       return send(e,`目录已切换到：${ctx.cwd}\n旧会话已解除绑定。当前 ${providerLabel(ctx.mode)}，直接发任务即可。`);
     }
-    if (text === '/exit') {ctx.mode='commands';saveContext();return send(e,`已退出执行模式。会话保留；直接发任务会用默认 ${providerLabel(c.defaultMode)}，或发 /codex、/cursor、/qcoder、/opencode 切换。`);}
+    if (text === '/exit') {ctx.mode='commands';saveContext();return send(e,`已退出执行模式。会话保留；直接发任务会用默认 ${providerLabel(c.defaultMode)}，或发 /codex、/cursor、/qoder、/opencode 切换。`);}
     if (text === '/new') {
       if (AGENT_MODES.includes(ctx.mode)) {
         db.prepare('DELETE FROM sessions WHERE id=?').run(providerSessionKey(key, ctx.mode));
@@ -301,7 +316,7 @@ async function start() {
       clearProviderSessions(db, key);
       return send(e, `已清除当前对话绑定。直接发任务会用默认 ${providerLabel(c.defaultMode)}。`);
     }
-    const selected=/^\/(codex|cursor|qcoder|opencode)(?:\s|$)/.exec(text);
+    const selected=/^\/(codex|cursor|qoder|opencode)(?:\s|$)/.exec(text);
     if(selected) {
       ctx.mode=selected[1];saveContext();text=text.slice(selected[1].length+1).trim();
       if(!text) return send(e,`已进入 ${providerLabel(ctx.mode)} 模式\n目录：${ctx.cwd}\n请发送任务描述；/exit 退出。`);
@@ -389,62 +404,41 @@ async function start() {
       console.error('任务未完成或结果未送达；详见本地任务状态。');
     } finally {active=null;}
   }
-  function parseActionValue(raw) {
-    if (raw && typeof raw === 'object') return raw;
-    try { return JSON.parse(String(raw || '')); } catch { return null; }
-  }
-  async function handleCardAction(e) {
-    // Legacy cards may still show「新会话」; keep callback so old messages work.
-    if (!c.allowedUsers.includes(e.operator_id)) return;
-    const value = parseActionValue(e.action_value);
-    if (!value || value.action !== 'new') return;
-    const key = String(value.key || '');
-    if (key !== `${e.operator_id}:${e.chat_id}`) return;
-    const ctx = db.prepare('SELECT cwd, mode FROM contexts WHERE id=?').get(key) || {mode: c.defaultMode};
-    if (AGENT_MODES.includes(ctx.mode)) {
-      db.prepare('DELETE FROM sessions WHERE id=?').run(providerSessionKey(key, ctx.mode));
-    } else {
-      clearProviderSessions(db, key);
-    }
-    if (!e.token) return;
-    const modeNote = AGENT_MODES.includes(ctx.mode)
-      ? `仍在 ${providerLabel(ctx.mode)} 模式，直接发下一条任务即可。`
-      : `直接发任务会用默认 ${providerLabel(c.defaultMode)}。`;
-    const notice = buildFinalCard({
-      question: '新会话',
-      result: `**结论**\n\n已开新会话。${modeNote}`,
-      process: ['点击了「新会话」'],
-      label: 'Bridge',
-      seconds: 0
-    });
-    try {
-      await runCli(['api','POST','/open-apis/interactive/v1/card/update','--as','bot','--data',JSON.stringify({token:e.token, card: notice})], 15000);
-    } catch { /* session already cleared */ }
-  }
   const listener=spawn('lark-cli',['event','consume','im.message.receive_v1','--as','bot'],{env,stdio:['pipe','pipe','pipe']});
-  const cardListener=spawn('lark-cli',['event','consume','card.action.trigger','--as','bot'],{env,stdio:['pipe','pipe','pipe']});
   // Keep stdin open: lark-cli interprets EOF as shutdown.
-  let ready=false;
+  let ready=false, stopping=false;
+  function shutdown({message, failed = false} = {}) {
+    if (message) console.error(message);
+    if (failed) process.exitCode=1;
+    if (stopping) return;
+    stopping=true;
+    try {listener.stdin.end();} catch {}
+    if(active?.child) stopJob(active);
+  }
   createInterface({input:listener.stderr}).on('line',line=>{
     if(line.includes('[event] ready')) {ready=true; console.log('飞书订阅已就绪，等待白名单用户私聊。');}
     else if (line.includes('WARN')) console.error('飞书订阅警告，请检查事件连接。');
   });
-  createInterface({input:listener.stdout}).on('line',line=>{try { const e=JSON.parse(line); handle(e).catch(()=>console.error('消息处理失败。')); } catch { console.error('收到无法解析的事件。'); }});
-  createInterface({input:cardListener.stdout}).on('line',line=>{try { const e=JSON.parse(line); handleCardAction(e).catch(()=>console.error('卡片回调处理失败。')); } catch { console.error('收到无法解析的卡片回调。'); }});
-  cardListener.stderr.resume();
-  listener.on('error',()=>{console.error('无法启动飞书 CLI');process.exitCode=1;});
-  listener.on('close',code=>{
-    console.error(`飞书订阅已退出（${code}），${ready ? '请重新启动。':'请检查飞书应用配置、订阅权限和钥匙串访问。'}`);
-    try {cardListener.stdin.end();} catch {}
-    if(active?.child) stopJob(active);
-    process.exitCode=1;
+  createInterface({input:listener.stdout}).on('line',line=>{
+    try {
+      const e=JSON.parse(line);
+      handle(e).catch(err=>console.error(`消息处理失败：${String(err?.message || err).slice(-1500)}`));
+    } catch {
+      console.error(`收到无法解析的事件：${String(line).slice(0,500)}`);
+    }
   });
-  for(const signal of ['SIGTERM','SIGINT']) process.on(signal,()=>{listener.stdin.end(); try {cardListener.stdin.end();} catch {} if(active?.child) stopJob(active);});
+  listener.on('error',()=>shutdown({message:'无法启动飞书消息订阅。', failed:true}));
+  listener.on('close',code=>{
+    if (stopping) return;
+    shutdown({message:`飞书订阅已退出（${code}），${ready ? '请重新启动。':'请检查飞书应用配置、订阅权限和钥匙串访问。'}`, failed:true});
+  });
+  for(const signal of ['SIGTERM','SIGINT']) process.on(signal,()=>shutdown());
 }
 try {
   if(command === 'connect') { requireLarkCli(); connect(root,env); }
   else if(command === 'setup') await setup();
   else if(command === 'doctor') doctor();
+  else if(command === 'internal-install') internalInstall();
   else if(command === 'launchagent') launchagent();
   else if(command === 'bindbot') await bindbot();
   else if(command === 'init') await runInit();

@@ -10,7 +10,7 @@ import {
 
 test('parseInitArgs 解析自定义 BOT、跳过配对、全量与 agents', () => {
   assert.deepEqual(parseInitArgs(['--app-id', 'cli_abc', '--app-secret-stdin', '--skip-pair', '--full', '--agents', 'codex,cursor']), {
-    appId: 'cli_abc', appSecretStdin: true, skipPair: true, full: true, agentsFlag: 'codex,cursor',
+    appId: 'cli_abc', appSecretStdin: true, skipPair: true, full: true, internal: false, agentsFlag: 'codex,cursor',
   });
   assert.equal(parseInitArgs([]).full, false);
   assert.equal(parseInitArgs([]).agentsFlag, '');
@@ -35,15 +35,15 @@ test('init 默认只装 Codex 并做登录；--full 安装全部且可选择登�
   };
   await init('/root', {PATH: 'x'}, {skipPair: true}, {
     ...deps,
-    ensureTools: (_env, opts) => {
+    checkTools: (_env, opts) => {
       batches.push(opts.names);
       return {env: {PATH: 'x'}, notes: ['Codex：已安装，跳过'], ok: true};
     },
     pickAuthAgents: async () => ['codex'],
   });
-  await init('/root', {PATH: 'x'}, {full: true, skipPair: true, agentsFlag: 'cursor,qcoder'}, {
+  await init('/root', {PATH: 'x'}, {full: true, skipPair: true, agentsFlag: 'cursor,qoder'}, {
     ...deps,
-    ensureTools: (_env, opts) => {
+    checkTools: (_env, opts) => {
       batches.push(opts.names);
       return {env: {PATH: 'x'}, notes: ['Codex：安装成功'], ok: true};
     },
@@ -51,11 +51,11 @@ test('init 默认只装 Codex 并做登录；--full 安装全部且可选择登�
   });
   assert.deepEqual(batches, [
     ['codex'],
-    ['codex', 'cursor', 'qcoder', 'opencode'],
+    ['codex', 'cursor', 'qoder', 'opencode'],
   ]);
   assert.deepEqual(authBatches, [
     ['codex'],
-    ['cursor', 'qcoder'],
+    ['cursor', 'qoder'],
   ]);
 });
 
@@ -114,7 +114,7 @@ test('checkPrerequisites 在 Lark CLI 缺失时失败', () => {
     },
   });
   assert.equal(result.ok, false);
-  assert.ok(result.notes.some(n => n.includes('Lark CLI') && n.includes('npx @larksuite/cli')));
+  assert.ok(result.notes.some(n => n.includes('Lark CLI') && n.includes('npm install -g @larksuite/cli')));
 });
 
 test('init 复用 Lark CLI BOT、完成 connect，已有配置时跳过配对', async () => {
@@ -123,7 +123,7 @@ test('init 复用 Lark CLI BOT、完成 connect，已有配置时跳过配对', 
   const status = {appId: 'cli_abc', brand: 'feishu', identities: {bot: {available: true}}};
   const connection = {appId: 'cli_abc', botName: 'Bridge', eventSubscriptionReady: true};
   await init('/root', {}, {skipPair: false}, {
-    ensureTools: () => ({env: {}, notes: ['Codex：已安装，跳过'], ok: true}),
+    checkTools: () => ({env: {}, notes: ['Codex：已安装，跳过'], ok: true}),
     ensureAuth: () => ({ok: true, notes: ['Codex 登录：已就绪，跳过'], agents: ['codex']}),
     pickAuthAgents: async () => ['codex'],
     check: () => ({ok: true, notes: ['Node：可用', 'Lark CLI：可用']}),
@@ -141,7 +141,7 @@ test('init 复用 Lark CLI BOT、完成 connect，已有配置时跳过配对', 
 test('init 无 BOT 且非交互时给出明确指引', async () => {
   await assert.rejects(
     () => init('/root', {}, {}, {
-      ensureTools: () => ({env: {}, notes: ['Codex：已安装，跳过'], ok: true}),
+      checkTools: () => ({env: {}, notes: ['Codex：已安装，跳过'], ok: true}),
       ensureAuth: () => ({ok: true, notes: [], agents: ['codex']}),
       pickAuthAgents: async () => ['codex'],
       check: () => ({ok: true, notes: []}),

@@ -19,7 +19,7 @@
 | `/cd 绝对路径` | 切换工作目录（支持 `~/`）；清除会话绑定；忙碌时不可用 |
 | `/codex [任务]` | 进入 Codex；可带任务，或之后直接发文字续接 |
 | `/cursor [任务]` | 进入 Cursor Agent |
-| `/qcoder [任务]` | 进入 Qoder |
+| `/qoder [任务]` | 进入 Qoder |
 | `/opencode [任务]` | 进入 OpenCode |
 | `/model` | 列出**当前执行器**可用模型（命令模式则看 `defaultMode`） |
 | `/model 模型名` | 设置模型（须在列表中）；也支持 `/cursor /model 模型名` |
@@ -59,8 +59,8 @@ cd feishu-bridge
 ### 2. 准备本机依赖与飞书应用
 
 1. 在本机终端确认 `codex login status` 正常；未登录时运行 `codex login`。
-2. 未安装飞书 CLI 时执行 `npx @larksuite/cli@latest install`。
-3. 确认应用开启机器人能力、长连接事件接收，订阅 `im.message.receive_v1`，回调配置启用 `card.action.trigger`；有私聊消息读取 `im:message.p2p_msg:readonly`、以机器人发送消息 `im:message:send_as_bot`，以及更新卡片 `im:message:update`（或等价 `im:message`）权限；完成发布及可见范围配置。
+2. 未安装飞书 CLI 时执行 `npm install -g @larksuite/cli`。`npm run init` 和 `npm run doctor` 只检查并提示安装方式，不会自动执行全局安装。
+3. 确认应用开启机器人能力、长连接事件接收并订阅 `im.message.receive_v1`；有私聊消息读取 `im:message.p2p_msg:readonly`、以机器人发送消息 `im:message:send_as_bot`，以及更新卡片 `im:message:update`（或等价 `im:message`）权限；完成发布及可见范围配置。
 
 ### 3. 初始化与启动
 
@@ -77,6 +77,7 @@ npm start       # 启动长连接；看到「飞书订阅已就绪」后即可�
 | 命令 | 说明 |
 |------|------|
 | `npm run init` | 依赖检查 + 飞书 BOT + 配对 |
+| `npm run internal-install` | 安装公司内部 `dr` CLI，以及 `tjob`、`skillctl` 模块 |
 | `npm start` | 启动长连接服务 |
 | `npm run doctor` | 诊断本机配置（会打印数据目录） |
 | `npm run connect` / `pair` / `setup` / `bindbot` | 手工分步 |
@@ -87,13 +88,13 @@ npm start       # 启动长连接；看到「飞书订阅已就绪」后即可�
 
 **默认：`npm run init`**
 
-1. 安装 Codex CLI（已装则跳过）
+1. 检查 Codex CLI；未安装时提示安装方式，不会自动安装
 2. 检查登录；未登录则拉起 `codex login`
 3. 再继续飞书配置 / 配对（默认复用 Lark CLI 已配置的 BOT；无 BOT 时提示填写 App ID / App Secret）
 
 **全量：`npm run init -- --full`**
 
-1. 安装全部 Agent（Codex / Cursor / Qoder / OpenCode；已装则跳过）
+1. 检查全部 Agent（Codex / Cursor / Qoder / OpenCode）的安装状态；未安装时提示安装方式，不会自动安装
 2. 提示选择要做登录初始化的 Agent（可多选）
 3. 对选中的逐个做登录验证
 
@@ -104,11 +105,11 @@ npm run init -- --full --agents codex,cursor
 npm run init -- --full --agents all
 ```
 
-其它常用参数：`--skip-pair`（跳过白名单配对）；`--app-id` + `--app-secret-stdin`（非交互绑定自定义 BOT）。若 Lark CLI 尚无应用，也可先 `lark-cli config init --new`。
+其它常用参数：`--skip-pair`（跳过白名单配对）；`--internal`（显式安装公司内部 `dr` CLI、`tjob`、`skillctl`）；`--app-id` + `--app-secret-stdin`（非交互绑定自定义 BOT）。若 Lark CLI 尚无应用，也可先 `lark-cli config init --new`。
 
 先发 `/status`，再 `/cd ~/projects/demo`；默认 Codex，可直接发任务。需要换模型时先 `/model` 查看列表，再 `/model 模型名`。完整命令表见上文「飞书命令」。忙碌期间不能切目录。重启后正在执行的任务标为 interrupted，不会自动重做。
 
-默认白名单用户可选择当前系统账户能够访问的目录；若需要限定范围，在本目录 `config.json` 加入 `"allowedRoots": ["/home/你的名字/projects"]`（macOS 多为 `/Users/...`）。把 `"defaultMode"` 改成 `cursor` / `qcoder` / `opencode` 可换默认执行器（需重启服务）。目录检查解析符号链接，不使用 shell 执行 `/cd` 的文本。
+默认白名单用户可选择当前系统账户能够访问的目录；若需要限定范围，在本目录 `config.json` 加入 `"allowedRoots": ["/home/你的名字/projects"]`（macOS 多为 `/Users/...`）。把 `"defaultMode"` 改成 `cursor` / `qoder` / `opencode` 可换默认执行器（需重启服务）。目录检查解析符号链接，不使用 shell 执行 `/cd` 的文本。
 
 密钥由现有 CLI 管理，本工具不复制密钥。macOS 钥匙串在某些沙箱或后台上下文中不可用；先在交互终端验证，不要为跑通而降低钥匙串保护。诊断成功代表本地配置存在，不代表消息收发权限已完成实测。
 
@@ -185,7 +186,7 @@ clone 运行时，本目录下的 `config.json`（白名单与项目目录）、
 
 已有机器人入口后，运行 `npm run pair`（或走 `npm run init`）。等待“配对监听已就绪”，把终端显示的 `/pair 一次性配对码` 发到该机器人的私聊中。程序只接受五分钟内收到的匹配文本，读取发送者的 open_id 并新建本地 config.json；群消息、错误配对码、旧消息不会写入白名单。配对码不要分享给他人。已有配置时拒绝覆盖。
 
-初次配对默认只读模式，初始目录为仓库内 `demo`，之后可用 `/cd` 切换。配对成功后运行 `npm start`，再发送 `/status` 验证收发。要允许修改选中的项目，在本机将 `config.json` 的 sandbox 改为 workspace-write 并重启服务。配对程序不调用 Codex，也不发送飞书消息；成功提示显示在本机终端。
+初次配对默认只读模式，初始目录为仓库内 `demo`，之后可用 `/cd` 切换。配对成功后运行 `npm start`，再发送 `/status` 验证收发。要允许修改选中的项目，在本机将 `config.json` 的 sandbox 改为 workspace-write 并重启服务。若本机 bubblewrap 不可用（Codex 报 `bwrap: No permissions to create new namespace`，多见于受限容器），可改为 `danger-full-access`：无沙箱、免审批，命令直接以本机身份执行——仅建议单人受控环境使用，风险自负。配对程序不调用 Codex，也不发送飞书消息；成功提示显示在本机终端。
 
 ## 推荐入口
 
@@ -201,17 +202,17 @@ npm start
 - `npm start`：已绑定则直接启动；若尚未配对，仍会自动 `connect` + `pair`（兼容旧流程）。
 - 绑定默认只读，不自动授予修改权限。`setup` / `connect` / `pair` / `bindbot` 保留用于手工诊断。
 
-缺少依赖或开放平台权限时，`init` 会给出明确失败原因；飞书后台订阅与发布仍需管理员完成。
+`init` 默认只做检查，不自动安装依赖；使用 `npm run init -- --internal` 或 `npm run internal-install` 时，才会联网安装公司内部 `dr` CLI，并执行 `dr module install tjob`、`dr module install skillctl`。Linux/macOS 使用 `curl -fsSL https://webfile.deeproute.cn/dr-cli-core/prod/latest/install.sh | bash`，Windows 使用 `irm https://webfile.deeproute.cn/dr-cli-core/prod/latest/install.ps1 | iex`。飞书后台订阅与发布仍需管理员完成。
 
 ## 执行器：Codex / Cursor / Qoder / OpenCode
 
-飞书里用 `/codex`、`/cursor`、`/qcoder`、`/opencode` 进入对应模式；进入后普通文字续接该执行器会话。会话彼此隔离。未进执行器或 `/exit` 后直接发任务，走 `config.json` 的 `defaultMode`（默认 Codex）。`/cd` 清除全部绑定并留在当前执行器（若在命令模式则用默认执行器）；`/new` 只清当前模式会话并留在该模式。`/model` 按**当前执行器**列模型并设置（Codex 读 `~/.codex/models_cache.json`，其余调对应 CLI）；模型偏好按会话+执行器持久化。取消、超时和失败回传共用。
+飞书里用 `/codex`、`/cursor`、`/qoder`、`/opencode` 进入对应模式；进入后普通文字续接该执行器会话。会话彼此隔离。未进执行器或 `/exit` 后直接发任务，走 `config.json` 的 `defaultMode`（默认 Codex）。`/cd` 清除全部绑定并留在当前执行器（若在命令模式则用默认执行器）；`/new` 只清当前模式会话并留在该模式。`/model` 按**当前执行器**列模型并设置（Codex 读 `~/.codex/models_cache.json`，其余调对应 CLI）；模型偏好按会话+执行器持久化。取消、超时和失败回传共用。
 
-| 命令 | CLI | 安装（或 `init --full`） | 登录 | 模型列表来源 |
+| 命令 | CLI | 安装（手动执行） | 登录 | 模型列表来源 |
 |------|-----|--------------------------------------|------|----------------|
 | `/codex` | Codex | `curl -fsSL https://chatgpt.com/codex/install.sh \| sh` | `codex login` | `~/.codex/models_cache.json` |
 | `/cursor` | Cursor Agent | `curl https://cursor.com/install -fsSL \| bash` | `npm run cursor:login` | `cursor-agent models` |
-| `/qcoder` | [Qoder CLI](https://docs.qoder.com/cli/installation) | `curl -fsSL https://qoder.com/install \| bash` | `npm run qcoder:login` | `qoder --list-models` |
+| `/qoder` | [Qoder CLI](https://docs.qoder.com/cli/installation) | `curl -fsSL https://qoder.com/install \| bash` | `npm run qoder:login` | `qoder --list-models` |
 | `/opencode` | [OpenCode](https://opencode.ai/) | `curl -fsSL https://opencode.ai/v2/install \| bash` | `npm run opencode:login` | `opencode models` |
 
 Cursor：默认 Agent 模式 + sandbox；非交互加 `--trust`（跳过目录信任提示，不是 `--force`）。本工具优先 `~/.local/bin/cursor-agent`。

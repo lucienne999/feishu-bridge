@@ -16,7 +16,7 @@ test('Cursor 使用默认 Agent 模式和沙箱，信任工作区，不自动放
 });
 
 test('Qoder 使用 print/stream-json，只读为 plan，可写为 accept_edits', () => {
-  const ro = providerSpec('qcoder', 'q-session', 'read-only', '解释 README');
+  const ro = providerSpec('qoder', 'q-session', 'read-only', '解释 README');
   assert.equal(ro.label, 'Qoder');
   assert.equal(ro.passPromptOnStdin, false);
   assert.deepEqual(ro.args, [
@@ -25,7 +25,7 @@ test('Qoder 使用 print/stream-json，只读为 plan，可写为 accept_edits',
     '--resume', 'q-session',
     '解释 README',
   ]);
-  const ww = providerSpec('qcoder', null, 'workspace-write', '改代码');
+  const ww = providerSpec('qoder', null, 'workspace-write', '改代码');
   assert.ok(ww.args.includes('accept_edits'));
   assert.ok(!ww.args.includes('--yolo'));
 });
@@ -49,14 +49,14 @@ test('defaultMode 缺省为 Codex，非法值拒绝', () => {
 test('四种执行器会话隔离并保留原 Codex key', () => {
   assert.equal(providerSessionKey('chat', 'codex'), 'chat');
   assert.notEqual(providerSessionKey('chat', 'cursor'), providerSessionKey('chat', 'codex'));
-  assert.notEqual(providerSessionKey('chat', 'qcoder'), providerSessionKey('chat', 'cursor'));
-  assert.notEqual(providerSessionKey('chat', 'opencode'), providerSessionKey('chat', 'qcoder'));
-  assert.deepEqual(providerSessionIds('chat'), ['chat', 'chat:cursor', 'chat:qcoder', 'chat:opencode']);
+  assert.notEqual(providerSessionKey('chat', 'qoder'), providerSessionKey('chat', 'cursor'));
+  assert.notEqual(providerSessionKey('chat', 'opencode'), providerSessionKey('chat', 'qoder'));
+  assert.deepEqual(providerSessionIds('chat'), ['chat', 'chat:cursor', 'chat:qoder', 'chat:opencode']);
   assert.equal(providerLabel('opencode'), 'OpenCode');
 });
 
 test('Cursor / Qoder 成功、失败与缺失终止事件不会混淆', () => {
-  for (const provider of ['cursor', 'qcoder']) {
+  for (const provider of ['cursor', 'qoder']) {
     assert.equal(providerEvent(provider, {type: 'system', subtype: 'init', session_id: 's'}).session, 's');
     const final = providerEvent(provider, {type: 'result', subtype: 'success', is_error: false, result: 'OK', session_id: 's'});
     assert.equal(final.text, 'OK');

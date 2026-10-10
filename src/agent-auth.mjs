@@ -2,26 +2,26 @@ import {execFileSync, spawnSync} from 'node:child_process';
 import {cursorBinary, qoderBinary, opencodeBinary, providerLabel} from './providers.mjs';
 import {withLocalBinPath} from './tools-install.mjs';
 
-export const AUTH_AGENTS = ['codex', 'cursor', 'qcoder', 'opencode'];
+export const AUTH_AGENTS = ['codex', 'cursor', 'qoder', 'opencode'];
 
 function agentBin(name) {
   if (name === 'codex') return 'codex';
   if (name === 'cursor') return cursorBinary();
-  if (name === 'qcoder') return qoderBinary();
+  if (name === 'qoder') return qoderBinary();
   if (name === 'opencode') return opencodeBinary();
   throw Error(`未知 Agent：${name}`);
 }
 
 function statusArgs(name) {
   if (name === 'codex') return ['login', 'status'];
-  if (name === 'cursor' || name === 'qcoder') return ['status'];
+  if (name === 'cursor' || name === 'qoder') return ['status'];
   if (name === 'opencode') return ['auth', 'list'];
   throw Error(`未知 Agent：${name}`);
 }
 
 function loginArgs(name) {
   if (name === 'codex') return ['login'];
-  if (name === 'cursor' || name === 'qcoder') return ['login'];
+  if (name === 'cursor' || name === 'qoder') return ['login'];
   if (name === 'opencode') return ['auth', 'login'];
   throw Error(`未知 Agent：${name}`);
 }

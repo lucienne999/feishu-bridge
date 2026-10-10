@@ -26,6 +26,7 @@
     "setup": "node src/cli.mjs setup",
     "start": "node src/check-node.mjs && node src/cli.mjs start",
     "doctor": "node src/check-node.mjs && node src/cli.mjs doctor",
+    "internal-install": "node src/check-node.mjs && node src/cli.mjs internal-install",
     "test": "node --test",
     "launchagent": "node src/cli.mjs launchagent",
     "connect": "node src/cli.mjs connect",
@@ -33,8 +34,8 @@
     "pair": "node src/pair.mjs",
     "cursor:login": "node src/cursor-auth.mjs login",
     "cursor:status": "node src/cursor-auth.mjs status",
-    "qcoder:login": "node src/qcoder-auth.mjs login",
-    "qcoder:status": "node src/qcoder-auth.mjs status",
+    "qoder:login": "node src/qoder-auth.mjs login",
+    "qoder:status": "node src/qoder-auth.mjs status",
     "opencode:login": "node src/opencode-auth.mjs login",
     "opencode:status": "node src/opencode-auth.mjs list"
   }

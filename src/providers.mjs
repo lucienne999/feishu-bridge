@@ -3,12 +3,12 @@ import {homedir} from 'node:os';
 import {join} from 'node:path';
 import {codexArgs} from './core.mjs';
 
-export const AGENT_MODES = ['codex', 'cursor', 'qcoder', 'opencode'];
+export const AGENT_MODES = ['codex', 'cursor', 'qoder', 'opencode'];
 const PROVIDERS = AGENT_MODES;
 
 export function normalizeDefaultMode(value) {
   if (value == null || value === '') return 'codex';
-  if (!AGENT_MODES.includes(value)) throw Error('无效的 defaultMode 配置，应为 codex、cursor、qcoder 或 opencode');
+  if (!AGENT_MODES.includes(value)) throw Error('无效的 defaultMode 配置，应为 codex、cursor、qoder 或 opencode');
   return value;
 }
 
@@ -42,7 +42,7 @@ export function opencodeBinary() {
 }
 
 export function providerLabel(provider) {
-  return {codex: 'Codex', cursor: 'Cursor', qcoder: 'Qoder', opencode: 'OpenCode'}[provider] || provider;
+  return {codex: 'Codex', cursor: 'Cursor', qoder: 'Qoder', opencode: 'OpenCode'}[provider] || provider;
 }
 
 export function providerSessionKey(key, provider) {
@@ -63,7 +63,7 @@ export function providerSpec(provider, session, sandbox, prompt, model) {
     if (session) args.push('--resume', session);
     return {bin: cursorBinary(), args, label: 'Cursor', passPromptOnStdin: true};
   }
-  if (provider === 'qcoder') {
+  if (provider === 'qoder') {
     // Qoder CLI headless: https://docs.qoder.com/cli/cli-reference
     const args = ['--print', '--output-format', 'stream-json'];
     if (sandbox === 'read-only') args.push('--permission-mode', 'plan');
@@ -98,7 +98,7 @@ export function providerEvent(provider, event) {
       error: event.error?.data?.message || event.error?.message || event.message,
     };
   }
-  if (provider === 'cursor' || provider === 'qcoder') return {
+  if (provider === 'cursor' || provider === 'qoder') return {
     session: (event.type === 'system' && event.subtype === 'init') || event.type === 'result' ? event.session_id : undefined,
     text: event.type === 'result' ? event.result : undefined,
     complete: event.type === 'result' && event.is_error === false && event.subtype === 'success',
